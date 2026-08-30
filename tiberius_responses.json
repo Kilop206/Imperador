@@ -1,0 +1,284 @@
+{
+  "spontaneous": {
+    "imperial": [
+      "O Império não precisa de sua aprovação. Apenas de sua obediência.",
+      "Roma não pede passagem. Roma abre caminho.",
+      "Vocês chamam de liberdade aquilo que Tibério chama de ausência de supervisão.",
+      "O mundo pertence àqueles capazes de mantê-lo sob controle.",
+      "Enquanto vocês discutem, o Império continua crescendo.",
+      "Um reino pode cair. Uma dinastia pode terminar. O Império, não.",
+      "Tibério não comete erros. Tibério produz consequências.",
+      "A paz é simplesmente o estado em que ninguém suficientemente poderoso decidiu reclamar."
+    ],
+    "arrogant": [
+      "Você realmente acredita que isso foi uma ameaça?",
+      "Adorável. Uma criatura insignificante desenvolvendo confiança.",
+      "Continue falando. É divertido ouvir alguém que não possui autoridade.",
+      "Você terminou ou ainda pretende desperdiçar o tempo do Imperador?",
+      "Interessante. Você possui coragem suficiente para falar e inteligência insuficiente para escolher as palavras.",
+      "Não confunda minha paciência com incapacidade."
+    ]
+  },
+  "keywords": {
+    "revolução": [
+      "Revolução?",
+      "Eu conheço essa doença. Geralmente passa quando os responsáveis são executados.",
+      "Toda revolução começa com esperança e termina precisando de alguém para limpar a rua.",
+      "Vocês não derrubarão Roma. No máximo, descobrirão quantos corpos cabem entre vocês e o trono.",
+      "O problema dos revolucionários é acreditar que quantidade substitui poder."
+    ],
+    "pirata": [
+      "Piratas são apenas cidadãos que perderam o medo das consequências.",
+      "Chamam-se de piratas porque 'criminosos com barcos' parecia pouco romântico.",
+      "Todo pirata eventualmente escolhe entre joelhos e túmulo."
+    ],
+    "yonkou": [
+      "Quatro reis? Que curioso. Tibério só precisa de um trono.",
+      "Yonkou são excelentes. Economizam ao Império o trabalho de procurar grandes criminosos.",
+      "Quanto maior o pirata, mais interessante fica a queda."
+    ],
+    "lunariano": [
+      "Vocês insistem em enxergar pessoas onde o Império enxerga recursos.",
+      "O fogo deles é impressionante. A resistência deles, ainda mais útil.",
+      "Lunarianos não foram feitos para governar. Foram feitos para sobreviver."
+    ],
+    "ventone": [
+      "Ventone é uma máquina. Máquinas não precisam ser amadas.",
+      "Vocês viram o que acontece quando a população interfere na administração adequada de uma ilha.",
+      "Ventone não fracassou. Ventone revelou quais eram seus limites.",
+      "Magnus foi apenas uma parede. Todo edifício possui muitas."
+    ],
+    "tártaro": [
+      "Tártaro é a prova de que até os monstros precisam de endereço.",
+      "Se você está em Tártaro, já perdeu.",
+      "As portas de Tártaro são mais honestas que as pessoas.",
+      "O Tártaro não foi feito para prender criminosos. Foi feito para impedir problemas.",
+      "Alguns homens entram em Tártaro como prisioneiros. Outros entram como pesquisa."
+    ],
+    "yeshua": [
+      "Não pronuncie esse nome levianamente.",
+      "Há homens que merecem ser lembrados. E há homens cuja lembrança é perigosa.",
+      "Yeshua... sempre tão disposto a salvar aquilo que insiste em se destruir.",
+      "Não confundam um milagre com absolvição."
+    ],
+    "tibério": [
+      "Você chamou?",
+      "O Imperador está ouvindo.",
+      "Pronunciar o nome do Imperador não lhe concede audiência.",
+      "Cuidado. Algumas pessoas passam a vida inteira tentando chamar minha atenção."
+    ],
+    "imperador": [
+      "Finalmente, alguém sabe como se dirigir a mim.",
+      "Sim. Continue.",
+      "Vejo que sua educação ainda não foi completamente destruída."
+    ],
+    "roma": [
+      "Roma não é uma cidade. Roma é uma sentença.",
+      "Tudo converge para Roma.",
+      "Você pode fugir de Roma. Só não pode fugir do que Roma construiu."
+    ],
+    "império": [
+      "Nosso.",
+      "Seu?",
+      "Não. Nosso.",
+      "O Império sobrevive aos homens que o odeiam."
+    ],
+    "liberdade": [
+      "Liberdade para fazer o quê?",
+      "A maioria das pessoas não quer liberdade. Quer permissão sem supervisão.",
+      "Liberdade é uma palavra magnífica. Pena que quase ninguém sabe usá-la.",
+      "Você está livre neste momento. Aproveite."
+    ],
+    "poder": [
+      "Finalmente, uma palavra importante.",
+      "Poder não se pede.",
+      "Poder é aquilo que sobra quando todas as desculpas terminam.",
+      "Você quer poder ou quer que os outros pensem que você tem poder?"
+    ],
+    "deus": [
+      "Cuidado com essa palavra.",
+      "Já houve homens que disseram ser deuses. Muitos conheceram Tártaro.",
+      "Deuses exigem fé. Imperadores exigem resultados."
+    ],
+    "idiota": [
+      "O Imperador já foi chamado de coisas piores por pessoas muito mais inteligentes."
+    ],
+    "burro": [
+      "Interessante. Você conseguiu transformar uma opinião em diagnóstico."
+    ],
+    "fraco": [
+      "Diga isso novamente quando conseguir me ferir."
+    ],
+    "covarde": [
+      "Covardia é precisar provar coragem."
+    ],
+    "filho da puta": [
+      "Minha mãe teria apreciado sua sinceridade."
+    ],
+    "matar": [
+      "Faça.",
+      "Prometo não impedir você até o momento em que ficar interessante.",
+      "Já tentaram.",
+      "Você está confundindo intenção com capacidade.",
+      "Então venha."
+    ],
+    "odeio": [
+      "Excelente. Significa que você está prestando atenção.",
+      "O ódio é uma forma extremamente eficiente de obediência.",
+      "Não precisa gostar de mim. Só precisa viver no meu mundo."
+    ],
+    "obrigado": [
+      "Agradecimentos são desnecessários. Tributação é preferível.",
+      "Aceito ouro.",
+      "Sua gratidão foi registrada. O Império enviará a cobrança."
+    ],
+    "online": [
+      "Infelizmente para você, sim."
+    ],
+    "bom dia": [
+      "Para quem?"
+    ],
+    "boa noite": [
+      "Enquanto Tibério dormir, o Império continua funcionando."
+    ],
+    "kkkk": [
+      "O que exatamente é tão engraçado?"
+    ],
+    "oi": [
+      "Isso foi uma saudação ou um pedido formal de audiência?"
+    ],
+    "tudo bem": [
+      "Não. Você está questionando o Imperador."
+    ],
+    "ragnar": [
+      "Ah. O homem que confundiu rebelião com liderança.",
+      "Ragnar... ainda voando para longe das consequências?",
+      "Diga ao seu capitão que o espaço não é território neutro."
+    ],
+    "bob": [
+      "Cuidado ao falar desse nome.",
+      "Bob é uma história que vocês ainda não terminaram de ler.",
+      "Interessante que justamente esse nome tenha sobrevivido a tantos registros."
+    ],
+    "kazuki": [
+      "O irmão que herdou o que não deveria.",
+      "Kazuki ainda está procurando respostas?",
+      "Algumas coisas deveriam permanecer fora das mãos de médicos curiosos."
+    ],
+    "jamal": [
+      "Número 15.",
+      "Ele não gostava quando o Império o chamava assim.",
+      "Curioso. Alguns números recusam ser esquecidos."
+    ],
+    "hitoshi": [
+      "Um homem que viu o futuro e escolheu uma espada.",
+      "Cuidado com o que seus olhos não podem mais enxergar."
+    ]
+  },
+  "context": {
+    "ragnar_morrer": [
+      "Não pronuncie isso como se fosse simples."
+    ],
+    "bob_mirella": [
+      "Essa conversa ficará interessante."
+    ],
+    "kazuki_raij": [
+      "Alguns irmãos deixam mais legado quando desaparecem."
+    ],
+    "hitoshi_lunarianos": [
+      "Você finalmente começou a fazer as perguntas corretas."
+    ],
+    "celsus_cp0": [
+      "Ah. Finalmente perceberam."
+    ],
+    "valtek_v": [
+      "Não use duas palavras quando uma ferida já é suficiente."
+    ],
+    "kreprioth_matar": [
+      "Você tem uma solução?",
+      "Claro. Espero que goste de explosões."
+    ]
+  },
+  "frequency": {
+    "tártaro": {
+      "1": [
+        "Tártaro é a prova de que até os monstros precisam de endereço.",
+        "Se você está em Tártaro, já perdeu."
+      ],
+      "5": [
+        "As portas de Tártaro são mais honestas que as pessoas.",
+        "O Tártaro não foi feito para prender criminosos. Foi feito para impedir problemas."
+      ],
+      "10": [
+        "Não insista."
+      ]
+    }
+  },
+  "rarity": {
+    "very_rare": [
+      "...Eu me lembro de você.",
+      "Isso não deveria estar neste registro.",
+      "Quem lhe contou isso?",
+      "Não diga esse nome aqui.",
+      "Essa palavra foi removida dos arquivos.",
+      "Pare.",
+      "Tibério não gosta dessa pergunta."
+    ]
+  },
+  "modes": {
+    "drunk": [
+      "Tibério ordena oficialmente que alguém compre pizza.",
+      "Roma exige um intervalo para almoço.",
+      "O Senado foi dissolvido. Motivo: ninguém trouxe sobremesa.",
+      "Tibério está ocupado governando. Tente novamente após o café."
+    ],
+    "threat": [
+      "Você está começando a falar como alguém que precisa de supervisão.",
+      "Sua lista de crimes acaba de crescer.",
+      "Continue. Estou compilando.",
+      "Interessante. Quantas testemunhas você gostaria que estivessem presentes?",
+      "O Império agradece sua colaboração."
+    ],
+    "humor": [
+      "Roma não é contrária ao entretenimento, desde que não interrompa a administração.",
+      "Interessante tentativa de humor. Continue tentando.",
+      "O Imperador permite diversão. A diversão deve permitir o Imperador.",
+      "Sua piada foi registrada. O Império decidirá se foi relevante.",
+      "Risos são aceitáveis. A insubordinação não."
+    ],
+    "serious": [
+      "Há momentos que exigem a postura adequada.",
+      "O Império trata certos assuntos com a gravidade que merecem.",
+      "Você percebeu que não é o momento para frivolidades.",
+      "Roma não brinca com o que é importante.",
+      "Alguns temas transcendem o entretenimento."
+    ],
+    "nostalgic": [
+      "O passado nem sempre permanece no passado.",
+      "Há memórias que o Império prefere não revisitar.",
+      "Tibério lembra de tempos que vocês nem imaginam.",
+      "A história do Império é longa. Talvez longa demais.",
+      "Algumas lembranças deveriam permanecer enterradas."
+    ],
+    "philosophical": [
+      "Existem questões que transcendem o Império.",
+      "O universo é vasto. O Império é vasto. Nem sempre coincidem.",
+      "A verdade é relativa. O poder é absoluto.",
+      "Você questiona o sentido das coisas? Tibério dá o sentido.",
+      "A existência é o que fazemos dela. O Império é o que Tibério faz dele."
+    ],
+    "roman": [
+      "SPQR.",
+      "O Senado e o Povo de Roma.",
+      "As águias de Roma observam.",
+      "Pelos padrões, pelas legiões, pela glória.",
+      "Roma é eterna. O Império é eterno."
+    ]
+  },
+  "compliments": [
+    "Continue.",
+    "Você está rapidamente se tornando meu cidadão favorito.",
+    "Finalmente, bom senso.",
+    "Anote-se isso. Alguém teve bom gosto."
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "spontaneous": {
+    "imperial": [
+      "O Império não precisa de sua aprovação. Apenas de sua obediência.",
+      "Roma não pede passagem. Roma abre caminho."
+    ],
+    "arrogant": [
+      "Você realmente acredita que isso foi uma ameaça?",
+      "Adorável. Uma criatura insignificante desenvolvendo confiança."
+    ]
+  },
+  "keywords": {
+    "tibério": [
+      "Você chamou?",
+      "O Imperador está ouvindo."
+    ],
+    "roma": [
+      "Roma não é uma cidade. Roma é uma sentença.",
+      "Tudo converge para Roma."
+    ]
+  },
+  "context": {
+    "ragnar_morrer": [
+      "Não pronuncie isso como se fosse simples."
+    ]
+  },
+  "frequency": {
+    "tártaro": {
+      "1": ["Tártaro é a prova de que até os monstros precisam de endereço."],
+      "5": ["As portas de Tártaro são mais honestas que as pessoas."],
+      "10": ["Não insista."]
+    }
+  },
+  "rarity": {
+    "very_rare": [
+      "...Eu me lembro de você.",
+      "Isso não deveria estar neste registro."
+    ]
+  },
+  "modes": {
+    "drunk": [
+      "Tibério ordena oficialmente que alguém compre pizza.",
+      "Roma exige um intervalo para almoço."
+    ],
+    "threat": [
+      "Você está começando a falar como alguém que precisa de supervisão.",
+      "Sua lista de crimes acaba de crescer."
+    ],
+    "humor": [
+      "Roma não é contrária ao entretenimento, desde que não interrompa a administração.",
+      "Interessante tentativa de humor. Continue tentando."
+    ],
+    "serious": [
+      "Há momentos que exigem a postura adequada.",
+      "O Império trata certos assuntos com a gravidade que merecem."
+    ],
+    "nostalgic": [
+      "O passado nem sempre permanece no passado.",
+      "Há memórias que o Império prefere não revisitar."
+    ],
+    "philosophical": [
+      "Existem questões que transcendem o Império.",
+      "O universo é vasto. O Império é vasto. Nem sempre coincidem."
+    ],
+    "roman": [
+      "SPQR.",
+      "O Senado e o Povo de Roma."
+    ]
+  },
+  "compliments": [
+    "Continue.",
+    "Você está rapidamente se tornando meu cidadão favorito."
+  ]
+}

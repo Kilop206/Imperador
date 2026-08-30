@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(npm install)",
+      "Exec(mkdir src)",
+      "Exec(New-Item)",
+      "Exec(Remove-Item)",
+      "Exec(Rename-Item)",
+      "Exec(npm run)"
+    ]
+  }
+}
