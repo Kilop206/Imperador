@@ -12,6 +12,8 @@ Bot do Discord em TypeScript com personalidade imperial que envia mensagens espo
 - ✅ **7 Modos especiais**: Bêbado, Ameaça, Humor, Sério, Nostálgico, Filosófico, Romano
 - ✅ **Triggers automáticos** baseados em padrões de conversa
 - ✅ **Detecção automática de agressividade** para trigger de modo
+- ✅ **Validação inteligente de respostas** (evita contradições como elogios em xingamentos)
+- ✅ **Detecção de sarcasmo** para não responder sarcasmo como elogio
 - ✅ **Comandos especiais** para controle de modos
 - ✅ **Sistema de elogios** com respostas dedicadas
 - ✅ **Sistema de permissões de canais** configurável
@@ -202,7 +204,8 @@ Imperador/
 │   │   ├── contextAnalyzer.ts # Análise de contexto e frequência
 │   │   ├── rarityManager.ts   # Sistema de frases raras
 │   │   ├── modeManager.ts     # Gerenciamento de modos especiais
-│   │   └── triggerManager.ts  # Sistema de triggers automáticos
+│   │   ├── triggerManager.ts  # Sistema de triggers automáticos
+│   │   └── responseValidator.ts # Validação de consistência de respostas
 │   └── index.ts               # Ponto de entrada do bot
 ├── tiberius_responses.json    # Todas as respostas do Tibério
 ├── .env.example               # Exemplo de configuração
@@ -220,8 +223,19 @@ Imperador/
 5. **Rastreamento de Frequência**: O bot conta menções de palavras para mudar respostas ao longo do tempo
 6. **Sistema de Triggers Automáticos**: O bot monitora padrões de conversa e ativa modos automaticamente
 7. **Detecção de Agressividade**: O bot monitora linguagem agressiva para ativar modo ameaça
-8. **Prioridade de Resposta**: Combinações > Modos especiais > Elogios > Palavras-chave > Frases raras
-9. **Respostas**: O bot monitora mensagens nos canais permitidos e responde com base em múltiplos critérios
+8. **Validação de Respostas**: O bot filtra respostas inapropriadas para evitar contradições (ex: não responde com elogio a xingamentos)
+9. **Prioridade de Resposta**: Combinações > Agressividade > Elogios > Modos especiais > Palavras-chave > Frases raras
+10. **Respostas**: O bot monitora mensagens nos canais permitidos e responde com base em múltiplos critérios
+
+### Sistema Inteligente de Respostas
+
+O bot possui um sistema de validação que evita contradições:
+
+- **Mensagens agressivas**: O bot não responde com elogios ou frases positivas
+- **Mensagens de elogio**: O bot não responde com frases agressivas ou ameaçadoras
+- **Detecção de sarcasmo**: O bot identifica sarcasmo para não responder como elogio
+- **Priorização de contexto**: Mensagens agressivas têm prioridade sobre palavras-chave normais
+- **Filtragem dinâmica**: Respostas são filtradas em tempo real baseadas no contexto da mensagem
 
 ## Desenvolvimento
 

@@ -11,7 +11,7 @@ export class TriggerManager {
   private static drunkTriggers = ['festa', 'cerveja', 'álcool', 'bebida', 'drink', 'comemorar', 'celebrar', 'alegrar', 'felicidade', 'diversão', 'balada', 'noite', 'bar', 'pub', 'vinho', 'chopp', 'toast'];
 
   // Palavras que podem ativar modo humor
-  private static humorTriggers = ['kkkk', 'hahaha', 'rsrs', 'piada', 'engraçado', 'rir', 'risada', 'humor', 'comédia', 'zueira', 'brincadeira', 'lol', 'lmao', 'haha', 'k'];
+  private static humorTriggers = ['kkkk', 'hahaha', 'rsrs', 'piada', 'engraçado', 'rir', 'risada', 'humor', 'comédia', 'zueira', 'brincadeira', 'lol', 'lmao', 'haha', 'k '];
 
   // Palavras que podem ativar modo sério
   private static seriousTriggers = ['morte', 'morrer', 'guerra', 'batalha', 'sangue', 'destruição', 'sofrimento', 'dor', 'tristeza', 'chorei', 'chorar', 'lágrimas', 'funeral', 'enterro', 'cataclismo', 'desastre', 'tragédia'];

@@ -1,7 +1,7 @@
 import { config } from '../config/config';
 
-const aggressiveWords = ['matar', 'morrer', 'mata', 'morre', 'destruir', 'destruir', 'acabar', 'acaba', 'fude', 'fuder', 'caralho', 'porra', 'merda', 'idiota', 'burro', 'estúpido'];
-const complimentWords = ['obrigado', 'obrigada', 'excelente', 'incrível', 'amazing', 'melhor', 'ótimo', 'ótima', 'admirável', 'fantástico', 'fantástica', 'brilhante', 'genial'];
+const aggressiveWords = ['matar', 'morrer', 'mata', 'morre', 'destruir', 'acabar', 'fude', 'fuder', 'caralho', 'porra', 'merda', 'idiota', 'burro', 'estúpido', 'retardado', 'imbecil', 'cabeça', 'boc', 'cu', 'caralho', 'desgraça', 'nojento', 'nojo', 'lixo', 'fraquinho', 'inútil', 'miserável', 'vergonha', 'patético', 'ridículo', 'estúpida', 'estúpidos', 'burros', 'burras', 'merdas', 'porras', 'caralhos', 'desgraças', 'lixos', 'inúteis', 'miseráveis', 'vergonhas', 'patéticos', 'ridículos'];
+const complimentWords = ['obrigado', 'obrigada', 'excelente', 'incrível', 'amazing', 'melhor', 'ótimo', 'ótima', 'admirável', 'fantástico', 'fantástica', 'brilhante', 'genial', 'parabéns', 'congratulations', 'love', 'amo', 'adora', 'admirar', 'respeito', 'respeitar', 'grato', 'grata', 'agradecido', 'agradecida', 'maravilhoso', 'maravilhosa', 'perfeito', 'perfeita', 'incrível', 'espetacular', 'formidável', 'excepcional', 'extraordinário', 'extraordinária'];
 
 export class ContextAnalyzer {
   static isCombination(content: string): string | null {
@@ -60,12 +60,31 @@ export class ContextAnalyzer {
       lowerContent.includes(word)
     ).length;
     
-    return aggressiveCount >= 2; // Múltiplas palavras agressivas
+    // Verifica se tem palavras agressivas ou palavrões
+    const hasAggressiveWords = aggressiveCount >= 1;
+    
+    // Verifica intensidade (mais palavras agressivas = mais agressivo)
+    const isHighlyAggressive = aggressiveCount >= 2;
+    
+    return hasAggressiveWords;
   }
 
   static isCompliment(content: string): boolean {
     const lowerContent = content.toLowerCase();
-    return complimentWords.some(word => lowerContent.includes(word));
+    
+    // Se for agressivo, não pode ser elogio
+    if (this.isAggressive(content)) {
+      return false;
+    }
+    
+    // Verifica palavras de elogio
+    const hasComplimentWords = complimentWords.some(word => lowerContent.includes(word));
+    
+    // Verifica indicadores de sarcasmo (ironia)
+    const sarcasmIndicators = ['sarcasmo', 'ironia', 'ironic', 'sarcástico', 'sarcástica', 'sarcasticamente', 'ironicamente', '😏', '🙄', '🤔'];
+    const hasSarcasm = sarcasmIndicators.some(indicator => lowerContent.includes(indicator));
+    
+    return hasComplimentWords && !hasSarcasm;
   }
 
   static incrementAggressiveCount(): void {

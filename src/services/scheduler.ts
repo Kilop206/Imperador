@@ -19,8 +19,8 @@ export class SchedulerService {
   getRandomMessage(): string {
     const spontaneousData = config.tiberiusResponses.spontaneous;
     
-    // Verifica se está em modo especial
-    if (!ModeManager.isNormalMode()) {
+    // Verifica se está em modo especial (30% de chance de usar resposta do modo)
+    if (!ModeManager.isNormalMode() && Math.random() < 0.3) {
       const modeResponse = ModeManager.getModeResponse();
       if (modeResponse) {
         return modeResponse;

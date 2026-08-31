@@ -25,8 +25,8 @@ const loadTiberiusResponses = (): any => {
 export const config = {
   token: process.env.DISCORD_TOKEN || '',
   allowedChannels: (process.env.ALLOWED_CHANNELS || '').split(',').filter(Boolean),
-  minInterval: parseInt(process.env.MIN_INTERVAL || '900000'), // 15 minutos em ms
-  maxInterval: parseInt(process.env.MAX_INTERVAL || '3600000'), // 1 hora em ms
+  minInterval: parseInt(process.env.MIN_INTERVAL || '43200000'), // 15 minutos em ms
+  maxInterval: parseInt(process.env.MAX_INTERVAL || '43200000'), // 1 hora em ms
   tiberiusResponses: loadTiberiusResponses(),
   currentMode: 'normal', // normal, drunk, threat
   wordFrequency: new Map<string, number>(), // Rastreamento de frequência de palavras

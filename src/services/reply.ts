@@ -4,6 +4,7 @@ import { ContextAnalyzer } from './contextAnalyzer';
 import { RarityManager } from './rarityManager';
 import { ModeManager } from './modeManager';
 import { TriggerManager } from './triggerManager';
+import { ResponseValidator } from './responseValidator';
 
 export class ReplyService {
   static shouldReply(message: Message): boolean {
@@ -59,35 +60,60 @@ export class ReplyService {
       return combinationResponse;
     }
 
-    // 3. Verifica agressividade e atualiza contador
-    if (ContextAnalyzer.isAggressive(message.content)) {
+    // 3. Detecta tipo de mensagem para contexto apropriado
+    const isAggressive = ContextAnalyzer.isAggressive(message.content);
+    const isCompliment = ContextAnalyzer.isCompliment(message.content);
+
+    // 4. Se for agressivo, atualiza contador e trata apropriadamente
+    if (isAggressive) {
       ContextAnalyzer.incrementAggressiveCount();
       if (ContextAnalyzer.shouldTriggerThreatMode()) {
         ModeManager.setMode('threat');
         ContextAnalyzer.resetAggressiveCount();
         return ModeManager.getModeResponse();
       }
+      // Se não atingiu threshold, procura palavras-chave agressivas específicas primeiro
+      const aggressiveKeywords = ['matar', 'morrer', 'idiota', 'burro', 'fraco', 'covarde', 'filho da puta', 'odeio', 'caralho', 'merda', 'porra'];
+      for (const keyword of aggressiveKeywords) {
+        if (content.includes(keyword)) {
+          const keywords = config.tiberiusResponses.keywords;
+          if (keywords[keyword]) {
+            const responses = keywords[keyword];
+            if (Array.isArray(responses)) {
+              return (responses as string[])[Math.floor(Math.random() * responses.length)];
+            }
+            return responses as string;
+          }
+        }
+      }
+      // Se não encontrou palavra-chave agressiva específica, responde com modo ameaça
+      if (ModeManager.isThreatMode()) {
+        return ModeManager.getModeResponse();
+      }
     } else {
       ContextAnalyzer.resetAggressiveCount();
     }
 
-    // 4. Verifica modo especial
-    if (!ModeManager.isNormalMode()) {
+    // 5. Se for elogio e NÃO for agressivo, responde com elogio
+    if (isCompliment && !isAggressive) {
+      const compliments = config.tiberiusResponses.compliments as string[];
+      if (compliments.length > 0) {
+        const appropriateCompliments = ResponseValidator.filterAppropriateResponses(compliments, isAggressive, isCompliment);
+        if (appropriateCompliments.length > 0) {
+          return appropriateCompliments[Math.floor(Math.random() * appropriateCompliments.length)];
+        }
+      }
+    }
+
+    // 6. Verifica modo especial (30% de chance de usar resposta do modo)
+    if (!ModeManager.isNormalMode() && Math.random() < 0.3) {
       const modeResponse = ModeManager.getModeResponse();
       if (modeResponse) {
         return modeResponse;
       }
     }
 
-    // 5. Verifica elogios
-    if (ContextAnalyzer.isCompliment(message.content)) {
-      const compliments = config.tiberiusResponses.compliments as string[];
-      if (compliments.length > 0) {
-        return compliments[Math.floor(Math.random() * compliments.length)];
-      }
-    }
-
-    // 6. Verifica palavras-chave com rastreamento de frequência
+    // 7. Verifica palavras-chave com rastreamento de frequência
     const keywords = config.tiberiusResponses.keywords;
     for (const [keyword, responses] of Object.entries(keywords)) {
       if (content.includes(keyword.toLowerCase())) {
@@ -95,16 +121,20 @@ export class ReplyService {
         
         // Verifica se há resposta baseada em frequência
         const frequencyResponse = ContextAnalyzer.getFrequencyBasedResponse(keyword);
-        if (frequencyResponse) {
+        if (frequencyResponse && ResponseValidator.isResponseAppropriate(frequencyResponse, isAggressive, isCompliment)) {
           return frequencyResponse;
         }
         
-        // Resposta normal da palavra-chave
+        // Resposta normal da palavra-chave com validação
         if (Array.isArray(responses)) {
           const responseArray = responses as string[];
-          return responseArray[Math.floor(Math.random() * responseArray.length)];
+          const appropriateResponses = ResponseValidator.filterAppropriateResponses(responseArray, isAggressive, isCompliment);
+          if (appropriateResponses.length > 0) {
+            return appropriateResponses[Math.floor(Math.random() * appropriateResponses.length)];
+          }
+        } else if (ResponseValidator.isResponseAppropriate(responses as string, isAggressive, isCompliment)) {
+          return responses as string;
         }
-        return responses as string;
       }
     }
 
