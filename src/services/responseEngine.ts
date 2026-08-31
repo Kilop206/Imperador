@@ -6,7 +6,9 @@ import {
   MessageIntent,
   TextAnalyzer,
 } from './textAnalyzer';
-import { ResponseValidator } from './responseValidator';
+import {
+  ResponseValidator,
+} from './responseValidator';
 
 export type ResponseSource =
   | 'context'
@@ -28,11 +30,14 @@ export class ResponseEngine {
     content: string
   ): ResponseCandidate[] {
     const candidates: ResponseCandidate[] = [];
+
     const analysis =
       TextAnalyzer.analyze(content);
 
     const contextResponse =
-      ContextAnalyzer.isCombination(content);
+      ContextAnalyzer.isCombination(
+        content
+      );
 
     if (contextResponse) {
       candidates.push({
@@ -55,7 +60,9 @@ export class ResponseEngine {
       );
     }
 
-    if (!ModeManager.isNormalMode()) {
+    if (
+      !ModeManager.isNormalMode()
+    ) {
       const modeResponse =
         ModeManager.getModeResponse();
 
@@ -64,7 +71,8 @@ export class ResponseEngine {
           text: modeResponse,
           source: 'mode',
           score:
-            analysis.intent === 'aggressive'
+            analysis.intent ===
+            'aggressive'
               ? 45
               : 60,
         });
@@ -101,7 +109,9 @@ export class ResponseEngine {
     content: string
   ): string | null {
     const candidates =
-      this.generateCandidates(content);
+      this.generateCandidates(
+        content
+      );
 
     if (candidates.length === 0) {
       return null;
@@ -129,7 +139,8 @@ export class ResponseEngine {
     const bestCandidates =
       sorted.filter(
         candidate =>
-          candidate.score === bestScore
+          candidate.score ===
+          bestScore
       );
 
     return this.randomItem(
@@ -142,7 +153,9 @@ export class ResponseEngine {
     candidates: ResponseCandidate[]
   ): void {
     const normalized =
-      TextAnalyzer.normalize(content);
+      TextAnalyzer.normalize(
+        content
+      );
 
     const keywords =
       config.tiberiusResponses.keywords;
@@ -152,7 +165,9 @@ export class ResponseEngine {
       of Object.entries(keywords)
     ) {
       const normalizedKeyword =
-        TextAnalyzer.normalize(keyword);
+        TextAnalyzer.normalize(
+          keyword
+        );
 
       if (
         !normalized.includes(
@@ -185,9 +200,12 @@ export class ResponseEngine {
     candidates: ResponseCandidate[]
   ): void {
     const responses =
-      config.tiberiusResponses.compliments;
+      config.tiberiusResponses
+        .compliments;
 
-    for (const response of responses) {
+    for (
+      const response of responses
+    ) {
       if (
         ResponseValidator.isResponseAppropriate(
           response,
@@ -214,17 +232,22 @@ export class ResponseEngine {
     candidates: ResponseCandidate[]
   ): void {
     const normalized =
-      TextAnalyzer.normalize(content);
+      TextAnalyzer.normalize(
+        content
+      );
 
     const keywords =
-      config.tiberiusResponses.keywords;
+      config.tiberiusResponses
+        .keywords;
 
     for (
       const [keyword, responses]
       of Object.entries(keywords)
     ) {
       const normalizedKeyword =
-        TextAnalyzer.normalize(keyword);
+        TextAnalyzer.normalize(
+          keyword
+        );
 
       if (
         !normalized.includes(
@@ -234,13 +257,15 @@ export class ResponseEngine {
         continue;
       }
 
-      ContextAnalyzer.trackWordFrequency(
-        keyword
-      );
+      const frequency =
+        ContextAnalyzer.trackWordFrequency(
+          keyword
+        );
 
       const frequencyResponse =
-        ContextAnalyzer.getFrequencyBasedResponse(
-          keyword
+        this.getFrequencyResponse(
+          keyword,
+          frequency
         );
 
       if (
@@ -275,70 +300,137 @@ export class ResponseEngine {
     }
   }
 
+  private static getFrequencyResponse(
+    keyword: string,
+    frequency: number
+  ): string | null {
+    const frequencyData =
+      config.tiberiusResponses
+        .frequency;
+
+    const originalKey =
+      Object.keys(frequencyData)
+        .find(
+          key =>
+            TextAnalyzer.normalize(
+              key
+            ) ===
+            TextAnalyzer.normalize(
+              keyword
+            )
+        );
+
+    if (!originalKey) {
+      return null;
+    }
+
+    const options =
+      frequencyData[originalKey];
+
+    let selected: string[] = [];
+    let highestThreshold = 0;
+
+    for (
+      const [threshold, responses]
+      of Object.entries(options)
+    ) {
+      const numericThreshold =
+        Number.parseInt(
+          threshold,
+          10
+        );
+
+      if (
+        frequency >=
+          numericThreshold &&
+        numericThreshold >
+          highestThreshold
+      ) {
+        highestThreshold =
+          numericThreshold;
+
+        selected = responses;
+      }
+    }
+
+    if (selected.length === 0) {
+      return null;
+    }
+
+    return this.randomItem(selected);
+  }
+
   private static addIntentCandidates(
     content: string,
     intent: MessageIntent,
     candidates: ResponseCandidate[]
   ): void {
     const keywords =
-      config.tiberiusResponses.keywords;
+      config.tiberiusResponses
+        .keywords;
 
     const intentKeywords:
-      Partial<Record<MessageIntent, string[]>> =
-      {
-        greeting: [
-          'oi',
-          'ola',
-          'olá',
-          'bom dia',
-          'boa tarde',
-          'boa noite',
-        ],
-        farewell: [
-          'tchau',
-          'adeus',
-          'até mais',
-          'ate mais',
-        ],
-        humor: [
-          'kkkk',
-          'hahaha',
-          'haha',
-          'rsrs',
-        ],
-        serious: [
-          'morte',
-          'guerra',
-        ],
-        nostalgic: [
-          'passado',
-          'saudade',
-        ],
-        philosophical: [
-          'vida',
-          'existência',
-          'sentido',
-        ],
-        roman: [
-          'roma',
-          'romano',
-          'império',
-        ],
-      };
+      Partial<Record<
+        MessageIntent,
+        string[]
+      >> = {
+      greeting: [
+        'oi',
+        'ola',
+        'olá',
+        'bom dia',
+        'boa tarde',
+        'boa noite',
+      ],
+      farewell: [
+        'tchau',
+        'adeus',
+        'até mais',
+        'ate mais',
+      ],
+      humor: [
+        'kkkk',
+        'hahaha',
+        'haha',
+        'rsrs',
+      ],
+      serious: [
+        'morte',
+        'guerra',
+      ],
+      nostalgic: [
+        'passado',
+        'saudade',
+      ],
+      philosophical: [
+        'vida',
+        'existência',
+        'sentido',
+      ],
+      roman: [
+        'roma',
+        'romano',
+        'império',
+      ],
+    };
 
     const possibleKeywords =
       intentKeywords[intent] || [];
 
     const normalized =
-      TextAnalyzer.normalize(content);
+      TextAnalyzer.normalize(
+        content
+      );
 
-    for (const keyword of possibleKeywords) {
-      const normalizedKeyword =
-        TextAnalyzer.normalize(keyword);
-
+    for (
+      const keyword
+      of possibleKeywords
+    ) {
       if (
         !normalized.includes(
-          normalizedKeyword
+          TextAnalyzer.normalize(
+            keyword
+          )
         )
       ) {
         continue;
@@ -375,7 +467,9 @@ export class ResponseEngine {
     content: string
   ): ResponseCandidate[] {
     const analysis =
-      TextAnalyzer.analyze(content);
+      TextAnalyzer.analyze(
+        content
+      );
 
     return candidates.filter(
       candidate =>
@@ -406,11 +500,12 @@ export class ResponseEngine {
         : null;
     }
 
-    return ResponseValidator.isResponseAppropriate(
-      response,
-      isAggressive,
-      isCompliment
-    )
+    return ResponseValidator
+      .isResponseAppropriate(
+        response,
+        isAggressive,
+        isCompliment
+      )
       ? response
       : null;
   }
@@ -420,7 +515,8 @@ export class ResponseEngine {
   ): T {
     return items[
       Math.floor(
-        Math.random() * items.length
+        Math.random() *
+          items.length
       )
     ];
   }

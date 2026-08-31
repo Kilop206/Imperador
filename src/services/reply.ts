@@ -1,7 +1,6 @@
 import { Message } from 'discord.js';
 
 import { config } from '../config/config';
-import { TextAnalyzer } from './textAnalyzer';
 import { TriggerManager } from './triggerManager';
 import { ModeManager } from './modeManager';
 import { RarityManager } from './rarityManager';
@@ -38,11 +37,13 @@ export class ReplyService {
       return false;
     }
 
-    const content =
-      message.content.toLowerCase().trim();
+    const command =
+      message.content
+        .toLowerCase()
+        .trim();
 
     if (
-      SPECIAL_COMMANDS.has(content)
+      SPECIAL_COMMANDS.has(command)
     ) {
       return true;
     }
@@ -85,51 +86,58 @@ export class ReplyService {
       case '!tiberio_caotico':
       case '!tiberio_bebado':
         ModeManager.setMode('drunk');
+
         return 'Tibério aceita oficialmente esta contribuição ao Império.';
 
       case '!tiberio_normal':
         ModeManager.resetToNormal();
+
         return 'Ordem restaurada.';
 
       case '!tiberio_ameaca':
         ModeManager.setMode('threat');
+
         return 'Sua insolência foi registrada.';
 
       case '!tiberio_humor':
         ModeManager.setMode('humor');
+
         return 'Roma não é contrária ao entretenimento.';
 
       case '!tiberio_serio':
         ModeManager.setMode('serious');
+
         return 'O Imperador assume a postura apropriada.';
 
       case '!tiberio_nostalgico':
         ModeManager.setMode('nostalgic');
+
         return 'O passado nem sempre permanece no passado.';
 
       case '!tiberio_filosofico':
-        ModeManager.setMode('philosophical');
+        ModeManager.setMode(
+          'philosophical'
+        );
+
         return 'Existem questões que transcendem o Império.';
 
       case '!tiberio_romano':
         ModeManager.setMode('roman');
+
         return 'SPQR.';
 
       case '!tiberio_status':
         return `Modo atual: ${ModeManager.getMode()}\nTriggers: ${TriggerManager.getTriggerStatus()}`;
 
-      case '!tiberio_raro': {
-        const response =
-          RarityManager.getRandomRareResponse();
-
+      case '!tiberio_raro':
         return (
-          response ??
+          RarityManager.getRandomRareResponse() ??
           'O Imperador não tem nada a dizer no momento.'
         );
-      }
 
       case '!tiberio_triggers':
         TriggerManager.resetTriggers();
+
         return 'Triggers resetados.';
 
       default:

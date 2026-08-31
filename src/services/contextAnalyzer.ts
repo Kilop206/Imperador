@@ -1,5 +1,6 @@
 import { config } from '../config/config';
 import { runtimeState } from '../state/runtimeState';
+import { MemoryService } from './memoryService';
 import { TextAnalyzer } from './textAnalyzer';
 
 export class ContextAnalyzer {
@@ -51,18 +52,17 @@ export class ContextAnalyzer {
 
   static trackWordFrequency(
     word: string
-  ): void {
-    const normalizedWord =
-      TextAnalyzer.normalize(word);
+  ): number {
+    return MemoryService.incrementWord(
+      TextAnalyzer.normalize(word)
+    );
+  }
 
-    const currentCount =
-      runtimeState.wordFrequency.get(
-        normalizedWord
-      ) || 0;
-
-    runtimeState.wordFrequency.set(
-      normalizedWord,
-      currentCount + 1
+  static getWordFrequency(
+    word: string
+  ): number {
+    return MemoryService.getWordCount(
+      TextAnalyzer.normalize(word)
     );
   }
 
@@ -84,19 +84,22 @@ export class ContextAnalyzer {
     }
 
     const count =
-      runtimeState.wordFrequency.get(
-        TextAnalyzer.normalize(originalKey)
-      ) || 0;
+      this.getWordFrequency(
+        originalKey
+      );
 
     const frequencyOptions =
       frequencyData[originalKey];
 
     let appropriateResponses: string[] = [];
+
     let maxThreshold = 0;
 
     for (
       const [threshold, responses]
-      of Object.entries(frequencyOptions)
+      of Object.entries(
+        frequencyOptions
+      )
     ) {
       const thresholdNum =
         Number.parseInt(
@@ -108,8 +111,11 @@ export class ContextAnalyzer {
         count >= thresholdNum &&
         thresholdNum > maxThreshold
       ) {
-        maxThreshold = thresholdNum;
-        appropriateResponses = responses;
+        maxThreshold =
+          thresholdNum;
+
+        appropriateResponses =
+          responses;
       }
     }
 
@@ -130,29 +136,41 @@ export class ContextAnalyzer {
   static isAggressive(
     content: string
   ): boolean {
-    return TextAnalyzer.isAggressive(content);
+    return TextAnalyzer.isAggressive(
+      content
+    );
   }
 
   static isCompliment(
     content: string
   ): boolean {
-    return TextAnalyzer.isCompliment(content);
+    return TextAnalyzer.isCompliment(
+      content
+    );
   }
 
   static isQuestion(
     content: string
   ): boolean {
-    return TextAnalyzer.isQuestion(content);
+    return TextAnalyzer.isQuestion(
+      content
+    );
   }
 
   static detectIntent(
     content: string
   ) {
-    return TextAnalyzer.detectIntent(content);
+    return TextAnalyzer.detectIntent(
+      content
+    );
   }
 
-  static analyze(content: string) {
-    return TextAnalyzer.analyze(content);
+  static analyze(
+    content: string
+  ) {
+    return TextAnalyzer.analyze(
+      content
+    );
   }
 
   static incrementAggressiveCount(): void {
@@ -160,12 +178,14 @@ export class ContextAnalyzer {
   }
 
   static resetAggressiveCount(): void {
-    runtimeState.aggressiveMessageCount = 0;
+    runtimeState.aggressiveMessageCount =
+      0;
   }
 
   static shouldTriggerThreatMode(): boolean {
     return (
-      runtimeState.aggressiveMessageCount >= 3
+      runtimeState.aggressiveMessageCount >=
+      3
     );
   }
 }

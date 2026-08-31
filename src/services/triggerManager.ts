@@ -1,5 +1,7 @@
 import { ModeManager } from './modeManager';
-import { runtimeState } from '../state/runtimeState';
+import {
+  runtimeState,
+} from '../state/runtimeState';
 
 type TriggerMode =
   | 'drunk'
@@ -23,8 +25,11 @@ export class TriggerManager {
 
   private static readonly TRIGGER_THRESHOLD = 3;
 
-  private static readonly drunkTriggers =
-    [
+  private static readonly triggers: Record<
+    TriggerCategory,
+    readonly string[]
+  > = {
+    drunk: [
       'festa',
       'cerveja',
       'álcool',
@@ -42,10 +47,9 @@ export class TriggerManager {
       'vinho',
       'chopp',
       'toast',
-    ] as const;
+    ],
 
-  private static readonly humorTriggers =
-    [
+    humor: [
       'kkkk',
       'hahaha',
       'rsrs',
@@ -61,10 +65,9 @@ export class TriggerManager {
       'lmao',
       'haha',
       'k ',
-    ] as const;
+    ],
 
-  private static readonly seriousTriggers =
-    [
+    serious: [
       'morte',
       'morrer',
       'guerra',
@@ -82,10 +85,9 @@ export class TriggerManager {
       'cataclismo',
       'desastre',
       'tragédia',
-    ] as const;
+    ],
 
-  private static readonly nostalgicTriggers =
-    [
+    nostalgic: [
       'passado',
       'antigo',
       'antiga',
@@ -101,10 +103,9 @@ export class TriggerManager {
       'tempos',
       'história',
       'recordar',
-    ] as const;
+    ],
 
-  private static readonly philosophicalTriggers =
-    [
+    philosophical: [
       'vida',
       'morte',
       'sentido',
@@ -121,10 +122,9 @@ export class TriggerManager {
       'consciência',
       'alma',
       'espírito',
-    ] as const;
+    ],
 
-  private static readonly romanTriggers =
-    [
+    roman: [
       'senado',
       'senador',
       'legião',
@@ -142,7 +142,8 @@ export class TriggerManager {
       'aquila',
       'latim',
       'roma',
-    ] as const;
+    ],
+  };
 
   static checkTriggers(
     content: string,
@@ -151,52 +152,23 @@ export class TriggerManager {
     const lowerContent =
       content.toLowerCase();
 
-    this.checkTriggerCategory(
-      lowerContent,
-      currentTime,
-      'drunk',
-      this.drunkTriggers,
-      'drunk'
-    );
-
-    this.checkTriggerCategory(
-      lowerContent,
-      currentTime,
-      'humor',
-      this.humorTriggers,
-      'humor'
-    );
-
-    this.checkTriggerCategory(
-      lowerContent,
-      currentTime,
-      'serious',
-      this.seriousTriggers,
-      'serious'
-    );
-
-    this.checkTriggerCategory(
-      lowerContent,
-      currentTime,
-      'nostalgic',
-      this.nostalgicTriggers,
-      'nostalgic'
-    );
-
-    this.checkTriggerCategory(
-      lowerContent,
-      currentTime,
-      'philosophical',
-      this.philosophicalTriggers,
-      'philosophical'
-    );
-
-    this.checkTriggerCategory(
-      lowerContent,
-      currentTime,
-      'roman',
-      this.romanTriggers,
-      'roman'
+    (
+      Object.entries(
+        this.triggers
+      ) as [
+        TriggerCategory,
+        readonly string[]
+      ][]
+    ).forEach(
+      ([category, triggers]) => {
+        this.checkTriggerCategory(
+          lowerContent,
+          currentTime,
+          category,
+          triggers,
+          category
+        );
+      }
     );
   }
 
@@ -253,23 +225,13 @@ export class TriggerManager {
       currentCount >=
       this.TRIGGER_THRESHOLD
     ) {
-      this.activateMode(mode);
+      ModeManager.setMode(mode);
 
       runtimeState.triggerCounts.set(
         category,
         0
       );
     }
-  }
-
-  private static activateMode(
-    mode: TriggerMode
-  ): void {
-    ModeManager.setMode(mode);
-
-    console.log(
-      `Trigger automático: modo ${mode} ativado!`
-    );
   }
 
   static getTriggerStatus(): string {
@@ -292,7 +254,6 @@ export class TriggerManager {
 
   static resetTriggers(): void {
     runtimeState.triggerCounts.clear();
-
     runtimeState.lastTriggerTime.clear();
 
     console.log(

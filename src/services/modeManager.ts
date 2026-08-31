@@ -24,7 +24,8 @@ export class ModeManager {
   ): void {
     this.clearModeTimeout();
 
-    runtimeState.currentMode = mode;
+    runtimeState.currentMode =
+      mode;
 
     console.log(
       `Modo do bot alterado para: ${mode}`
@@ -39,10 +40,6 @@ export class ModeManager {
 
     this.modeTimeout =
       setTimeout(() => {
-        console.log(
-          `Timeout automático: resetando modo ${mode} para normal`
-        );
-
         this.resetToNormal();
       }, duration);
 
@@ -124,9 +121,8 @@ export class ModeManager {
     }
 
     const responses =
-      config.tiberiusResponses.modes[
-        mode
-      ];
+      config.tiberiusResponses
+        .modes[mode];
 
     if (
       !responses ||
@@ -154,7 +150,7 @@ export class ModeManager {
     );
   }
 
-  private static clearModeTimeout(): void {
+  static clearModeTimeout(): void {
     if (this.modeTimeout) {
       clearTimeout(
         this.modeTimeout

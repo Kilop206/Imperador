@@ -8,9 +8,11 @@ import {
   validateConfig,
 } from './config/config';
 
+import { MemoryService } from './services/memoryService';
 import { SchedulerService } from './services/scheduler';
 import { ReplyService } from './services/reply';
 import { TriggerManager } from './services/triggerManager';
+import { ModeManager } from './services/modeManager';
 
 const client = new Client({
   intents: [
@@ -29,6 +31,8 @@ client.once('ready', () => {
     `Bot conectado como ${client.user?.tag}`
   );
 
+  MemoryService.initialize();
+
   scheduler =
     new SchedulerService(client);
 
@@ -38,6 +42,10 @@ client.once('ready', () => {
 client.on(
   'messageCreate',
   async message => {
+    if (message.author.bot) {
+      return;
+    }
+
     TriggerManager.checkTriggers(
       message.content
     );
@@ -68,6 +76,10 @@ const shutdown = (
 
   scheduler?.stop();
 
+  ModeManager.clearModeTimeout();
+
+  MemoryService.close();
+
   client.destroy();
 
   process.exit(0);
@@ -87,14 +99,18 @@ async function main(): Promise<void> {
   }
 
   try {
+    MemoryService.initialize();
+
     await client.login(
       config.token
     );
   } catch (error) {
     console.error(
-      'Erro ao fazer login no Discord:',
+      'Erro ao iniciar o bot:',
       error
     );
+
+    MemoryService.close();
 
     process.exit(1);
   }

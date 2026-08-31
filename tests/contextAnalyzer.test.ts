@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 import {
+  afterEach,
   beforeEach,
   test,
 } from 'node:test';
@@ -9,12 +10,18 @@ import {
 } from '../src/services/contextAnalyzer';
 
 import {
-  runtimeState,
-} from '../src/state/runtimeState';
+  MemoryService,
+} from '../src/services/memoryService';
 
 beforeEach(() => {
-  runtimeState.wordFrequency.clear();
-  runtimeState.aggressiveMessageCount = 0;
+  MemoryService.close();
+  MemoryService.initialize(
+    ':memory:'
+  );
+});
+
+afterEach(() => {
+  MemoryService.close();
 });
 
 test(
@@ -77,8 +84,8 @@ test(
     );
 
     assert.equal(
-      runtimeState.wordFrequency.get(
-        'tartaro'
+      ContextAnalyzer.getWordFrequency(
+        'tártaro'
       ),
       2
     );
@@ -88,10 +95,11 @@ test(
 test(
   'usa resposta da frequência correta',
   () => {
-    runtimeState.wordFrequency.set(
-      'tartaro',
-      5
-    );
+    for (let i = 0; i < 5; i++) {
+      ContextAnalyzer.trackWordFrequency(
+        'tártaro'
+      );
+    }
 
     const response =
       ContextAnalyzer.getFrequencyBasedResponse(

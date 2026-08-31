@@ -1,7 +1,21 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import {
+  afterEach,
+  beforeEach,
+  test,
+} from 'node:test';
 
+import { MemoryService } from '../src/services/memoryService';
 import { ResponseEngine } from '../src/services/responseEngine';
+
+beforeEach(() => {
+  MemoryService.close();
+  MemoryService.initialize(':memory:');
+});
+
+afterEach(() => {
+  MemoryService.close();
+});
 
 test('gera resposta para combinação de contexto', () => {
   const candidates =
@@ -10,6 +24,7 @@ test('gera resposta para combinação de contexto', () => {
     );
 
   assert.ok(candidates.length > 0);
+
   assert.ok(
     candidates.some(
       candidate =>
@@ -24,15 +39,45 @@ test('prioriza contexto sobre keyword', () => {
       'kreprioth matar'
     );
 
-  assert.ok(candidates.length > 0);
-
-  const context =
-    candidates.find(
+  const contextCandidates =
+    candidates.filter(
       candidate =>
         candidate.source === 'context'
     );
 
-  assert.ok(context);
+  assert.ok(
+    contextCandidates.length > 0
+  );
+
+  const keywordCandidates =
+    candidates.filter(
+      candidate =>
+        candidate.source === 'keyword' ||
+        candidate.source === 'aggressive'
+    );
+
+  assert.ok(
+    keywordCandidates.length > 0
+  );
+
+  const highestContextScore =
+    Math.max(
+      ...contextCandidates.map(
+        candidate => candidate.score
+      )
+    );
+
+  const highestOtherScore =
+    Math.max(
+      ...keywordCandidates.map(
+        candidate => candidate.score
+      )
+    );
+
+  assert.ok(
+    highestContextScore >
+      highestOtherScore
+  );
 
   const response =
     ResponseEngine.selectResponse(
@@ -40,9 +85,12 @@ test('prioriza contexto sobre keyword', () => {
     );
 
   assert.ok(response);
-  assert.equal(
-    response,
-    context.text
+
+  assert.ok(
+    contextCandidates.some(
+      candidate =>
+        candidate.text === response
+    )
   );
 });
 
