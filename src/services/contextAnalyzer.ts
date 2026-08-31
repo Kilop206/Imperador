@@ -1,101 +1,171 @@
 import { config } from '../config/config';
-
-const aggressiveWords = ['matar', 'morrer', 'mata', 'morre', 'destruir', 'acabar', 'fude', 'fuder', 'caralho', 'porra', 'merda', 'idiota', 'burro', 'estúpido', 'retardado', 'imbecil', 'cabeça', 'boc', 'cu', 'caralho', 'desgraça', 'nojento', 'nojo', 'lixo', 'fraquinho', 'inútil', 'miserável', 'vergonha', 'patético', 'ridículo', 'estúpida', 'estúpidos', 'burros', 'burras', 'merdas', 'porras', 'caralhos', 'desgraças', 'lixos', 'inúteis', 'miseráveis', 'vergonhas', 'patéticos', 'ridículos'];
-const complimentWords = ['obrigado', 'obrigada', 'excelente', 'incrível', 'amazing', 'melhor', 'ótimo', 'ótima', 'admirável', 'fantástico', 'fantástica', 'brilhante', 'genial', 'parabéns', 'congratulations', 'love', 'amo', 'adora', 'admirar', 'respeito', 'respeitar', 'grato', 'grata', 'agradecido', 'agradecida', 'maravilhoso', 'maravilhosa', 'perfeito', 'perfeita', 'incrível', 'espetacular', 'formidável', 'excepcional', 'extraordinário', 'extraordinária'];
+import { runtimeState } from '../state/runtimeState';
+import { TextAnalyzer } from './textAnalyzer';
 
 export class ContextAnalyzer {
-  static isCombination(content: string): string | null {
-    const words = content.toLowerCase().split(/\s+/);
-    const contextData = config.tiberiusResponses.context;
-    
-    for (const [combinationKey, responses] of Object.entries(contextData)) {
-      const combinationWords = combinationKey.split('_');
-      const hasAllWords = combinationWords.every(word => 
-        words.some(w => w.includes(word))
-      );
-      
-      if (hasAllWords && Array.isArray(responses) && responses.length > 0) {
-        const responseArray = responses as string[];
-        return responseArray[Math.floor(Math.random() * responseArray.length)];
+  static isCombination(
+    content: string
+  ): string | null {
+    const normalizedContent =
+      TextAnalyzer.normalize(content);
+
+    const contextData =
+      config.tiberiusResponses.context;
+
+    for (
+      const [combinationKey, responses]
+      of Object.entries(contextData)
+    ) {
+      const combinationWords =
+        combinationKey
+          .split('_')
+          .map(word =>
+            TextAnalyzer.normalize(word)
+          );
+
+      const hasAllWords =
+        combinationWords.every(word =>
+          normalizedContent
+            .split(' ')
+            .some(token =>
+              token === word ||
+              token.includes(word)
+            )
+        );
+
+      if (
+        hasAllWords &&
+        responses.length > 0
+      ) {
+        return responses[
+          Math.floor(
+            Math.random() *
+              responses.length
+          )
+        ];
       }
     }
-    
+
     return null;
   }
 
-  static trackWordFrequency(word: string): void {
-    const currentCount = config.wordFrequency.get(word) || 0;
-    config.wordFrequency.set(word, currentCount + 1);
+  static trackWordFrequency(
+    word: string
+  ): void {
+    const normalizedWord =
+      TextAnalyzer.normalize(word);
+
+    const currentCount =
+      runtimeState.wordFrequency.get(
+        normalizedWord
+      ) || 0;
+
+    runtimeState.wordFrequency.set(
+      normalizedWord,
+      currentCount + 1
+    );
   }
 
-  static getFrequencyBasedResponse(word: string): string | null {
-    const frequencyData = config.tiberiusResponses.frequency;
-    if (!frequencyData[word]) return null;
+  static getFrequencyBasedResponse(
+    word: string
+  ): string | null {
+    const frequencyData =
+      config.tiberiusResponses.frequency;
 
-    const count = config.wordFrequency.get(word) || 0;
-    const frequencyOptions = frequencyData[word];
+    const originalKey =
+      Object.keys(frequencyData).find(
+        key =>
+          TextAnalyzer.normalize(key) ===
+          TextAnalyzer.normalize(word)
+      );
 
-    // Encontra a resposta apropriada baseada na frequência
+    if (!originalKey) {
+      return null;
+    }
+
+    const count =
+      runtimeState.wordFrequency.get(
+        TextAnalyzer.normalize(originalKey)
+      ) || 0;
+
+    const frequencyOptions =
+      frequencyData[originalKey];
+
     let appropriateResponses: string[] = [];
     let maxThreshold = 0;
 
-    for (const [threshold, responses] of Object.entries(frequencyOptions)) {
-      const thresholdNum = parseInt(threshold);
-      if (count >= thresholdNum && thresholdNum > maxThreshold) {
+    for (
+      const [threshold, responses]
+      of Object.entries(frequencyOptions)
+    ) {
+      const thresholdNum =
+        Number.parseInt(
+          threshold,
+          10
+        );
+
+      if (
+        count >= thresholdNum &&
+        thresholdNum > maxThreshold
+      ) {
         maxThreshold = thresholdNum;
-        appropriateResponses = responses as string[];
+        appropriateResponses = responses;
       }
     }
 
-    if (appropriateResponses.length > 0) {
-      return appropriateResponses[Math.floor(Math.random() * appropriateResponses.length)];
+    if (
+      appropriateResponses.length === 0
+    ) {
+      return null;
     }
 
-    return null;
+    return appropriateResponses[
+      Math.floor(
+        Math.random() *
+          appropriateResponses.length
+      )
+    ];
   }
 
-  static isAggressive(content: string): boolean {
-    const lowerContent = content.toLowerCase();
-    const aggressiveCount = aggressiveWords.filter(word => 
-      lowerContent.includes(word)
-    ).length;
-    
-    // Verifica se tem palavras agressivas ou palavrões
-    const hasAggressiveWords = aggressiveCount >= 1;
-    
-    // Verifica intensidade (mais palavras agressivas = mais agressivo)
-    const isHighlyAggressive = aggressiveCount >= 2;
-    
-    return hasAggressiveWords;
+  static isAggressive(
+    content: string
+  ): boolean {
+    return TextAnalyzer.isAggressive(content);
   }
 
-  static isCompliment(content: string): boolean {
-    const lowerContent = content.toLowerCase();
-    
-    // Se for agressivo, não pode ser elogio
-    if (this.isAggressive(content)) {
-      return false;
-    }
-    
-    // Verifica palavras de elogio
-    const hasComplimentWords = complimentWords.some(word => lowerContent.includes(word));
-    
-    // Verifica indicadores de sarcasmo (ironia)
-    const sarcasmIndicators = ['sarcasmo', 'ironia', 'ironic', 'sarcástico', 'sarcástica', 'sarcasticamente', 'ironicamente', '😏', '🙄', '🤔'];
-    const hasSarcasm = sarcasmIndicators.some(indicator => lowerContent.includes(indicator));
-    
-    return hasComplimentWords && !hasSarcasm;
+  static isCompliment(
+    content: string
+  ): boolean {
+    return TextAnalyzer.isCompliment(content);
+  }
+
+  static isQuestion(
+    content: string
+  ): boolean {
+    return TextAnalyzer.isQuestion(content);
+  }
+
+  static detectIntent(
+    content: string
+  ) {
+    return TextAnalyzer.detectIntent(content);
+  }
+
+  static analyze(content: string) {
+    return TextAnalyzer.analyze(content);
   }
 
   static incrementAggressiveCount(): void {
-    config.aggressiveMessageCount++;
+    runtimeState.aggressiveMessageCount++;
   }
 
   static resetAggressiveCount(): void {
-    config.aggressiveMessageCount = 0;
+    runtimeState.aggressiveMessageCount = 0;
   }
 
   static shouldTriggerThreatMode(): boolean {
-    return config.aggressiveMessageCount >= 3; // 3 mensagens agressivas consecutivas
+    return (
+      runtimeState.aggressiveMessageCount >= 3
+    );
   }
 }

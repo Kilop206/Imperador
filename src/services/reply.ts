@@ -1,14 +1,40 @@
 import { Message } from 'discord.js';
+
 import { config } from '../config/config';
 import { ContextAnalyzer } from './contextAnalyzer';
 import { RarityManager } from './rarityManager';
 import { ModeManager } from './modeManager';
 import { TriggerManager } from './triggerManager';
 import { ResponseValidator } from './responseValidator';
+import {
+  MessageIntent,
+  TextAnalyzer,
+} from './textAnalyzer';
+
+const SPECIAL_COMMANDS = new Set([
+  '!tiberio_caotico',
+  '!tiberio_bebado',
+  '!tiberio_normal',
+  '!tiberio_ameaca',
+  '!tiberio_humor',
+  '!tiberio_serio',
+  '!tiberio_nostalgico',
+  '!tiberio_filosofico',
+  '!tiberio_romano',
+  '!tiberio_status',
+  '!tiberio_raro',
+  '!tiberio_triggers',
+]);
 
 export class ReplyService {
-  static shouldReply(message: Message): boolean {
-    if (!config.allowedChannels.includes(message.channelId)) {
+  static shouldReply(
+    message: Message
+  ): boolean {
+    if (
+      !config.allowedChannels.includes(
+        message.channelId
+      )
+    ) {
       return false;
     }
 
@@ -16,199 +42,427 @@ export class ReplyService {
       return false;
     }
 
-    const content = message.content.toLowerCase();
-    const keywords = config.tiberiusResponses.keywords;
+    const content =
+      message.content.toLowerCase().trim();
 
-    // Verifica comandos especiais
-    if (content.startsWith('!')) {
+    if (
+      SPECIAL_COMMANDS.has(content)
+    ) {
       return true;
     }
 
-    // Verifica combinações de contexto
-    if (ContextAnalyzer.isCombination(message.content)) {
+    if (
+      ContextAnalyzer.isCombination(
+        message.content
+      )
+    ) {
       return true;
     }
 
-    // Verifica palavras-chave
-    for (const keyword of Object.keys(keywords)) {
-      if (content.includes(keyword.toLowerCase())) {
+    const keywords =
+      config.tiberiusResponses.keywords;
+
+    for (
+      const keyword of Object.keys(keywords)
+    ) {
+      if (
+        TextAnalyzer.normalize(
+          content
+        ).includes(
+          TextAnalyzer.normalize(keyword)
+        )
+      ) {
         return true;
       }
     }
 
-    // Verifica agressividade para trigger de modo
-    if (ContextAnalyzer.isAggressive(message.content)) {
-      return true;
-    }
+    const analysis =
+      TextAnalyzer.analyze(
+        message.content
+      );
 
-    // Sempre verifica triggers automáticos para rastreamento
-    // Mesmo que não vá responder, precisa rastrear
-    return false;
+    return (
+      analysis.isAggressive ||
+      analysis.isCompliment ||
+      analysis.isQuestion
+    );
   }
 
-  static getReply(message: Message): string | null {
-    const content = message.content.toLowerCase();
-    
-    // 1. Processa comandos especiais primeiro
-    if (content.startsWith('!')) {
-      return this.handleCommand(message.content);
+  static getReply(
+    message: Message
+  ): string | null {
+    const content =
+      message.content.toLowerCase().trim();
+
+    if (
+      SPECIAL_COMMANDS.has(content)
+    ) {
+      return this.handleCommand(
+        message.content
+      );
     }
 
-    // 2. Verifica combinações de contexto (prioridade alta)
-    const combinationResponse = ContextAnalyzer.isCombination(message.content);
+    const analysis =
+      TextAnalyzer.analyze(
+        message.content
+      );
+
+    const combinationResponse =
+      ContextAnalyzer.isCombination(
+        message.content
+      );
+
     if (combinationResponse) {
       return combinationResponse;
     }
 
-    // 3. Detecta tipo de mensagem para contexto apropriado
-    const isAggressive = ContextAnalyzer.isAggressive(message.content);
-    const isCompliment = ContextAnalyzer.isCompliment(message.content);
-
-    // 4. Se for agressivo, atualiza contador e trata apropriadamente
-    if (isAggressive) {
+    if (analysis.isAggressive) {
       ContextAnalyzer.incrementAggressiveCount();
-      if (ContextAnalyzer.shouldTriggerThreatMode()) {
+
+      if (
+        ContextAnalyzer.shouldTriggerThreatMode()
+      ) {
         ModeManager.setMode('threat');
+
         ContextAnalyzer.resetAggressiveCount();
+
         return ModeManager.getModeResponse();
       }
-      // Se não atingiu threshold, procura palavras-chave agressivas específicas primeiro
-      const aggressiveKeywords = ['matar', 'morrer', 'idiota', 'burro', 'fraco', 'covarde', 'filho da puta', 'odeio', 'caralho', 'merda', 'porra'];
-      for (const keyword of aggressiveKeywords) {
-        if (content.includes(keyword)) {
-          const keywords = config.tiberiusResponses.keywords;
-          if (keywords[keyword]) {
-            const responses = keywords[keyword];
-            if (Array.isArray(responses)) {
-              return (responses as string[])[Math.floor(Math.random() * responses.length)];
-            }
-            return responses as string;
-          }
-        }
+
+      const aggressiveResponse =
+        this.getKeywordResponse(
+          message.content,
+          analysis.intent
+        );
+
+      if (aggressiveResponse) {
+        return aggressiveResponse;
       }
-      // Se não encontrou palavra-chave agressiva específica, responde com modo ameaça
-      if (ModeManager.isThreatMode()) {
+
+      if (
+        ModeManager.isThreatMode()
+      ) {
         return ModeManager.getModeResponse();
       }
-    } else {
-      ContextAnalyzer.resetAggressiveCount();
+
+      return null;
     }
 
-    // 5. Se for elogio e NÃO for agressivo, responde com elogio
-    if (isCompliment && !isAggressive) {
-      const compliments = config.tiberiusResponses.compliments as string[];
-      if (compliments.length > 0) {
-        const appropriateCompliments = ResponseValidator.filterAppropriateResponses(compliments, isAggressive, isCompliment);
-        if (appropriateCompliments.length > 0) {
-          return appropriateCompliments[Math.floor(Math.random() * appropriateCompliments.length)];
-        }
+    ContextAnalyzer.resetAggressiveCount();
+
+    if (analysis.isCompliment) {
+      const compliments =
+        config.tiberiusResponses.compliments;
+
+      const responses =
+        ResponseValidator
+          .filterAppropriateResponses(
+            compliments,
+            false,
+            true
+          );
+
+      if (responses.length > 0) {
+        return this.randomItem(responses);
       }
     }
 
-    // 6. Verifica modo especial (30% de chance de usar resposta do modo)
-    if (!ModeManager.isNormalMode() && Math.random() < 0.3) {
-      const modeResponse = ModeManager.getModeResponse();
+    const intentResponse =
+      this.getIntentResponse(
+        message.content,
+        analysis.intent
+      );
+
+    if (intentResponse) {
+      return intentResponse;
+    }
+
+    if (
+      !ModeManager.isNormalMode() &&
+      Math.random() < 0.3
+    ) {
+      const modeResponse =
+        ModeManager.getModeResponse();
+
       if (modeResponse) {
         return modeResponse;
       }
     }
 
-    // 7. Verifica palavras-chave com rastreamento de frequência
-    const keywords = config.tiberiusResponses.keywords;
-    for (const [keyword, responses] of Object.entries(keywords)) {
-      if (content.includes(keyword.toLowerCase())) {
-        ContextAnalyzer.trackWordFrequency(keyword);
-        
-        // Verifica se há resposta baseada em frequência
-        const frequencyResponse = ContextAnalyzer.getFrequencyBasedResponse(keyword);
-        if (frequencyResponse && ResponseValidator.isResponseAppropriate(frequencyResponse, isAggressive, isCompliment)) {
-          return frequencyResponse;
-        }
-        
-        // Resposta normal da palavra-chave com validação
-        if (Array.isArray(responses)) {
-          const responseArray = responses as string[];
-          const appropriateResponses = ResponseValidator.filterAppropriateResponses(responseArray, isAggressive, isCompliment);
-          if (appropriateResponses.length > 0) {
-            return appropriateResponses[Math.floor(Math.random() * appropriateResponses.length)];
-          }
-        } else if (ResponseValidator.isResponseAppropriate(responses as string, isAggressive, isCompliment)) {
-          return responses as string;
-        }
-      }
+    const keywordResponse =
+      this.getKeywordResponse(
+        message.content,
+        analysis.intent
+      );
+
+    if (keywordResponse) {
+      return keywordResponse;
     }
 
-    // 7. Chance de resposta rara
-    const rareResponse = RarityManager.getRareResponse();
-    if (rareResponse) {
-      return rareResponse;
+    const rareResponse =
+      RarityManager.getRareResponse();
+
+    return rareResponse;
+  }
+
+  private static getIntentResponse(
+    content: string,
+    intent: MessageIntent
+  ): string | null {
+    const data =
+      config.tiberiusResponses;
+
+    const intentKeywords: Record<
+      Exclude<MessageIntent, 'neutral'>,
+      string[]
+    > = {
+      aggressive: [],
+      compliment: [],
+      question: [],
+      greeting: ['oi', 'olá', 'ola'],
+      farewell: ['tchau', 'adeus'],
+      humor: ['kkkk', 'hahaha', 'haha'],
+      serious: ['morte', 'guerra'],
+      nostalgic: ['passado', 'saudade'],
+      philosophical: ['vida', 'existência', 'sentido'],
+      roman: ['roma', 'romano', 'império'],
+    };
+
+    if (
+      intent === 'greeting' &&
+      data.keywords['oi']
+    ) {
+      return this.resolveResponse(
+        data.keywords['oi'],
+        false,
+        false
+      );
+    }
+
+    if (
+      intent === 'farewell' &&
+      data.keywords['boa noite']
+    ) {
+      return this.resolveResponse(
+        data.keywords['boa noite'],
+        false,
+        false
+      );
+    }
+
+    if (
+      intent === 'humor'
+    ) {
+      for (
+        const keyword of intentKeywords.humor
+      ) {
+        if (
+          TextAnalyzer.normalize(
+            content
+          ).includes(keyword)
+        ) {
+          const response =
+            data.keywords[keyword];
+
+          if (response) {
+            return this.resolveResponse(
+              response,
+              false,
+              false
+            );
+          }
+        }
+      }
     }
 
     return null;
   }
 
-  static handleCommand(content: string): string | null {
-    const command = content.toLowerCase().trim();
-    
+  private static getKeywordResponse(
+    content: string,
+    intent: MessageIntent
+  ): string | null {
+    const normalized =
+      TextAnalyzer.normalize(
+        content
+      );
+
+    const keywords =
+      config.tiberiusResponses.keywords;
+
+    for (
+      const [keyword, responses]
+      of Object.entries(keywords)
+    ) {
+      const normalizedKeyword =
+        TextAnalyzer.normalize(keyword);
+
+      if (
+        !normalized.includes(
+          normalizedKeyword
+        )
+      ) {
+        continue;
+      }
+
+      ContextAnalyzer.trackWordFrequency(
+        keyword
+      );
+
+      const frequencyResponse =
+        ContextAnalyzer
+          .getFrequencyBasedResponse(
+            keyword
+          );
+
+      if (
+        frequencyResponse &&
+        ResponseValidator.isResponseAppropriate(
+          frequencyResponse,
+          intent === 'aggressive',
+          intent === 'compliment'
+        )
+      ) {
+        return frequencyResponse;
+      }
+
+      const response =
+        this.resolveResponse(
+          responses,
+          intent === 'aggressive',
+          intent === 'compliment'
+        );
+
+      if (response) {
+        return response;
+      }
+    }
+
+    return null;
+  }
+
+  private static resolveResponse(
+    response: string | string[],
+    isAggressive: boolean,
+    isCompliment: boolean
+  ): string | null {
+    if (Array.isArray(response)) {
+      const appropriate =
+        ResponseValidator
+          .filterAppropriateResponses(
+            response,
+            isAggressive,
+            isCompliment
+          );
+
+      return appropriate.length > 0
+        ? this.randomItem(appropriate)
+        : null;
+    }
+
+    return ResponseValidator.isResponseAppropriate(
+      response,
+      isAggressive,
+      isCompliment
+    )
+      ? response
+      : null;
+  }
+
+  private static randomItem<T>(
+    items: T[]
+  ): T {
+    return items[
+      Math.floor(
+        Math.random() *
+          items.length
+      )
+    ];
+  }
+
+  static handleCommand(
+    content: string
+  ): string | null {
+    const command =
+      content.toLowerCase().trim();
+
     switch (command) {
       case '!tiberio_caotico':
       case '!tiberio_bebado':
         ModeManager.setMode('drunk');
-        return "Tibério aceita oficialmente esta contribuição ao Império.";
-      
+        return 'Tibério aceita oficialmente esta contribuição ao Império.';
+
       case '!tiberio_normal':
         ModeManager.resetToNormal();
-        return "Ordem restaurada.";
-      
+        return 'Ordem restaurada.';
+
       case '!tiberio_ameaca':
         ModeManager.setMode('threat');
-        return "Sua insolência foi registrada.";
-      
+        return 'Sua insolência foi registrada.';
+
       case '!tiberio_humor':
         ModeManager.setMode('humor');
-        return "Roma não é contrária ao entretenimento.";
-      
+        return 'Roma não é contrária ao entretenimento.';
+
       case '!tiberio_serio':
         ModeManager.setMode('serious');
-        return "O Imperador assume a postura apropriada.";
-      
+        return 'O Imperador assume a postura apropriada.';
+
       case '!tiberio_nostalgico':
         ModeManager.setMode('nostalgic');
-        return "O passado nem sempre permanece no passado.";
-      
+        return 'O passado nem sempre permanece no passado.';
+
       case '!tiberio_filosofico':
         ModeManager.setMode('philosophical');
-        return "Existem questões que transcendem o Império.";
-      
+        return 'Existem questões que transcendem o Império.';
+
       case '!tiberio_romano':
         ModeManager.setMode('roman');
-        return "SPQR.";
-      
+        return 'SPQR.';
+
       case '!tiberio_status':
         return `Modo atual: ${ModeManager.getMode()}\nTriggers: ${TriggerManager.getTriggerStatus()}`;
-      
-      case '!tiberio_raro':
-        const rareResponse = RarityManager.getRandomRareResponse();
-        return rareResponse || "O Imperador não tem nada a dizer no momento.";
-      
+
+      case '!tiberio_raro': {
+        const rareResponse =
+          RarityManager.getRandomRareResponse();
+
+        return (
+          rareResponse ||
+          'O Imperador não tem nada a dizer no momento.'
+        );
+      }
+
       case '!tiberio_triggers':
         TriggerManager.resetTriggers();
-        return "Triggers resetados.";
-      
+        return 'Triggers resetados.';
+
       default:
         return null;
     }
   }
 
-  static async reply(message: Message): Promise<void> {
+  static async reply(
+    message: Message
+  ): Promise<void> {
     try {
-      const replyText = this.getReply(message);
+      const replyText =
+        this.getReply(message);
+
       if (replyText) {
-        await message.reply(replyText);
-        console.log(`Resposta enviada para mensagem de ${message.author.username}: ${replyText}`);
+        await message.reply(
+          replyText
+        );
+
+        console.log(
+          `Resposta enviada para mensagem de ${message.author.username}: ${replyText}`
+        );
       }
     } catch (error) {
-      console.error('Erro ao enviar resposta:', error);
+      console.error(
+        'Erro ao enviar resposta:',
+        error
+      );
     }
   }
 }

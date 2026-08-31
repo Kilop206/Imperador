@@ -1,138 +1,166 @@
 import { config } from '../config/config';
+import { runtimeState } from '../state/runtimeState';
+import { TiberiusMode } from '../types/tiberius';
 
 export class ModeManager {
-  private static modeTimeout: NodeJS.Timeout | null = null;
-  private static readonly MODE_DURATIONS = {
-    drunk: 10 * 60 * 1000,      // 10 minutos
-    threat: 5 * 60 * 1000,     // 5 minutos
-    humor: 15 * 60 * 1000,     // 15 minutos
-    serious: 20 * 60 * 1000,   // 20 minutos
-    nostalgic: 25 * 60 * 1000, // 25 minutos
-    philosophical: 30 * 60 * 1000, // 30 minutos
-    roman: 20 * 60 * 1000      // 20 minutos
+  private static modeTimeout:
+    NodeJS.Timeout | null = null;
+
+  private static readonly MODE_DURATIONS: Record<
+    Exclude<TiberiusMode, 'normal'>,
+    number
+  > = {
+    drunk: 10 * 60 * 1000,
+    threat: 5 * 60 * 1000,
+    humor: 15 * 60 * 1000,
+    serious: 20 * 60 * 1000,
+    nostalgic: 25 * 60 * 1000,
+    philosophical: 30 * 60 * 1000,
+    roman: 20 * 60 * 1000,
   };
 
-  static setMode(mode: 'normal' | 'drunk' | 'threat' | 'humor' | 'serious' | 'nostalgic' | 'philosophical' | 'roman'): void {
-    // Limpa timeout anterior se existir
-    if (this.modeTimeout) {
-      clearTimeout(this.modeTimeout);
-      this.modeTimeout = null;
+  static setMode(
+    mode: TiberiusMode
+  ): void {
+    this.clearModeTimeout();
+
+    runtimeState.currentMode = mode;
+
+    console.log(
+      `Modo do bot alterado para: ${mode}`
+    );
+
+    if (mode === 'normal') {
+      return;
     }
 
-    config.currentMode = mode;
-    console.log(`Modo do bot alterado para: ${mode}`);
+    const duration =
+      this.MODE_DURATIONS[mode];
 
-    // Define timeout automático para modos especiais
-    if (mode !== 'normal') {
-      const duration = this.MODE_DURATIONS[mode as keyof typeof this.MODE_DURATIONS];
-      if (duration) {
-        this.modeTimeout = setTimeout(() => {
-          console.log(`Timeout automático: Resetando modo ${mode} para normal`);
-          this.resetToNormal();
-        }, duration);
-        
-        console.log(`Modo ${mode} expirará em ${Math.round(duration / 60000)} minutos`);
-      }
-    }
+    this.modeTimeout =
+      setTimeout(() => {
+        console.log(
+          `Timeout automático: resetando modo ${mode} para normal`
+        );
+
+        this.resetToNormal();
+      }, duration);
+
+    this.modeTimeout.unref?.();
+
+    console.log(
+      `Modo ${mode} expirará em ${Math.round(
+        duration / 60000
+      )} minutos`
+    );
   }
 
-  static getMode(): string {
-    return config.currentMode;
+  static getMode(): TiberiusMode {
+    return runtimeState.currentMode;
   }
 
   static isDrunkMode(): boolean {
-    return config.currentMode === 'drunk';
+    return (
+      runtimeState.currentMode ===
+      'drunk'
+    );
   }
 
   static isThreatMode(): boolean {
-    return config.currentMode === 'threat';
+    return (
+      runtimeState.currentMode ===
+      'threat'
+    );
   }
 
   static isHumorMode(): boolean {
-    return config.currentMode === 'humor';
+    return (
+      runtimeState.currentMode ===
+      'humor'
+    );
   }
 
   static isSeriousMode(): boolean {
-    return config.currentMode === 'serious';
+    return (
+      runtimeState.currentMode ===
+      'serious'
+    );
   }
 
   static isNostalgicMode(): boolean {
-    return config.currentMode === 'nostalgic';
+    return (
+      runtimeState.currentMode ===
+      'nostalgic'
+    );
   }
 
   static isPhilosophicalMode(): boolean {
-    return config.currentMode === 'philosophical';
+    return (
+      runtimeState.currentMode ===
+      'philosophical'
+    );
   }
 
   static isRomanMode(): boolean {
-    return config.currentMode === 'roman';
+    return (
+      runtimeState.currentMode ===
+      'roman'
+    );
   }
 
   static isNormalMode(): boolean {
-    return config.currentMode === 'normal';
+    return (
+      runtimeState.currentMode ===
+      'normal'
+    );
   }
 
   static getModeResponse(): string | null {
-    const modeData = config.tiberiusResponses.modes;
-    
-    if (!modeData) return null;
-    
-    switch (config.currentMode) {
-      case 'drunk':
-        if (modeData.drunk && modeData.drunk.length > 0) {
-          const responses = modeData.drunk as string[];
-          return responses[Math.floor(Math.random() * responses.length)];
-        }
-        break;
-      case 'threat':
-        if (modeData.threat && modeData.threat.length > 0) {
-          const responses = modeData.threat as string[];
-          return responses[Math.floor(Math.random() * responses.length)];
-        }
-        break;
-      case 'humor':
-        if (modeData.humor && modeData.humor.length > 0) {
-          const responses = modeData.humor as string[];
-          return responses[Math.floor(Math.random() * responses.length)];
-        }
-        break;
-      case 'serious':
-        if (modeData.serious && modeData.serious.length > 0) {
-          const responses = modeData.serious as string[];
-          return responses[Math.floor(Math.random() * responses.length)];
-        }
-        break;
-      case 'nostalgic':
-        if (modeData.nostalgic && modeData.nostalgic.length > 0) {
-          const responses = modeData.nostalgic as string[];
-          return responses[Math.floor(Math.random() * responses.length)];
-        }
-        break;
-      case 'philosophical':
-        if (modeData.philosophical && modeData.philosophical.length > 0) {
-          const responses = modeData.philosophical as string[];
-          return responses[Math.floor(Math.random() * responses.length)];
-        }
-        break;
-      case 'roman':
-        if (modeData.roman && modeData.roman.length > 0) {
-          const responses = modeData.roman as string[];
-          return responses[Math.floor(Math.random() * responses.length)];
-        }
-        break;
+    const mode =
+      runtimeState.currentMode;
+
+    if (mode === 'normal') {
+      return null;
     }
-    
-    return null;
+
+    const responses =
+      config.tiberiusResponses.modes[
+        mode
+      ];
+
+    if (
+      !responses ||
+      responses.length === 0
+    ) {
+      return null;
+    }
+
+    return responses[
+      Math.floor(
+        Math.random() *
+          responses.length
+      )
+    ];
   }
 
   static resetToNormal(): void {
-    // Limpa timeout se existir
+    this.clearModeTimeout();
+
+    runtimeState.currentMode =
+      'normal';
+
+    console.log(
+      'Modo do bot resetado para normal'
+    );
+  }
+
+  private static clearModeTimeout(): void {
     if (this.modeTimeout) {
-      clearTimeout(this.modeTimeout);
+      clearTimeout(
+        this.modeTimeout
+      );
+
       this.modeTimeout = null;
     }
-    
-    config.currentMode = 'normal';
-    console.log('Modo do bot resetado para normal');
   }
 }

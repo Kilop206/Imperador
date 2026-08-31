@@ -86,8 +86,8 @@ cp tiberius_responses.json.example tiberius_responses.json
 |----------|-----------|--------|
 | `DISCORD_TOKEN` | Token do bot do Discord | Obrigatório |
 | `ALLOWED_CHANNELS` | IDs dos canais permitidos (separados por vírgula) | Obrigatório |
-| `MIN_INTERVAL` | Intervalo mínimo entre mensagens em ms | 3600000 (1 hora) |
-| `MAX_INTERVAL` | Intervalo máximo entre mensagens em ms | 7200000 (2 horas) |
+| `MIN_INTERVAL` | Intervalo mínimo entre mensagens em ms | 21600000 (8 horas) |
+| `MAX_INTERVAL` | Intervalo máximo entre mensagens em ms | 43200000 (12 horas) |
 
 ### Sistema de Respostas (tiberius_responses.json)
 

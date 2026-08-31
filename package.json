@@ -1,15 +1,20 @@
 {
   "name": "imperador",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Bot do Discord com personalidade imperial baseada em Tibério",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "tsx --test"
   },
-  "keywords": [],
+  "keywords": [
+    "discord",
+    "discord-bot",
+    "typescript",
+    "tiberius"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
