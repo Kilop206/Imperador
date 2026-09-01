@@ -10,6 +10,10 @@ import {
   IntentClassifier,
 } from '../intelligence/intentClassifier';
 
+import {
+  ActiveLearningService,
+} from '../intelligence/activeLearningService';
+
 export type MessageIntent =
   | 'aggressive'
   | 'compliment'
@@ -500,7 +504,7 @@ export class TextAnalyzer {
         content
       );
 
-    IntentCandidateService.collect(
+    ActiveLearningService.consider(
       content,
       prediction
     );
