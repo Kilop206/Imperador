@@ -5,9 +5,6 @@ import { TriggerManager } from './triggerManager';
 import { ModeManager } from './modeManager';
 import { RarityManager } from './rarityManager';
 import { ResponseEngine } from './responseEngine';
-import { EmotionEngine } from '../intelligence/emotionEngine';
-import { TextAnalyzer } from './textAnalyzer';
-import { MemoryService } from './memoryService';
 import { AutoMemoryService } from './autoMemoryService';
 
 const SPECIAL_COMMANDS = new Set([
@@ -87,12 +84,6 @@ export class ReplyService {
       );
     }
 
-    AutoMemoryService.processMessage(
-      userId,
-      username,
-      message.content
-    );
-
     return ResponseEngine.selectResponse(
       message.content,
       userId
@@ -102,7 +93,7 @@ export class ReplyService {
   static handleCommand(
     content: string,
     userId?: string,
-    username?: string
+    _username?: string
   ): string | null {
     const command =
       content.toLowerCase().trim();
@@ -199,18 +190,6 @@ export class ReplyService {
 
       await message.reply(
         replyText
-      );
-
-      // Update emotional state based on the interaction
-      const analysis = TextAnalyzer.analyze(
-        message.content
-      );
-
-      EmotionEngine.processMessage(analysis);
-
-      // Persist emotion state after each interaction
-      MemoryService.saveEmotions(
-        EmotionEngine.getState()
       );
 
       console.log(

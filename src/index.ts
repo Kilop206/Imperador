@@ -29,8 +29,23 @@ import {
 } from './services/modeManager';
 
 import {
+  AutoMemoryService,
+} from './services/autoMemoryService';
+
+import {
+  TextAnalyzer,
+} from './services/textAnalyzer';
+
+import {
+  EmotionEngine,
+} from './intelligence/emotionEngine';
+
+import {
   restoreEmotions,
 } from './state/emotionState';
+
+const EMOTION_DECAY_INTERVAL_MS =
+  5 * 60 * 1000;
 
 const client = new Client({
   intents: [
@@ -44,6 +59,10 @@ let scheduler:
   | SchedulerService
   | undefined;
 
+let emotionDecayInterval:
+  | NodeJS.Timeout
+  | undefined;
+
 client.once('ready', () => {
   console.log(
     `Bot conectado como ${client.user?.tag}`
@@ -51,10 +70,22 @@ client.once('ready', () => {
 
   MemoryService.initialize();
 
-  // Restore persisted emotional state
   restoreEmotions(
     MemoryService.loadEmotions()
   );
+
+  emotionDecayInterval =
+    setInterval(() => {
+      EmotionEngine.decay();
+
+      MemoryService.saveEmotions(
+        EmotionEngine.getState()
+      );
+
+      console.log(
+        `Estado emocional atualizado: ${EmotionEngine.describeMood()}`
+      );
+    }, EMOTION_DECAY_INTERVAL_MS);
 
   scheduler =
     new SchedulerService(client);
@@ -71,6 +102,30 @@ client.on(
 
     TriggerManager.checkTriggers(
       message.content
+    );
+
+    /*
+     * Todas as mensagens humanas passam
+     * pelos sistemas de memória e emoção,
+     * independentemente de Tibério responder.
+     */
+    const analysis =
+      TextAnalyzer.analyze(
+        message.content
+      );
+
+    AutoMemoryService.processMessage(
+      message.author.id,
+      message.author.username,
+      message.content
+    );
+
+    EmotionEngine.processMessage(
+      analysis
+    );
+
+    MemoryService.saveEmotions(
+      EmotionEngine.getState()
     );
 
     if (
@@ -97,9 +152,26 @@ const shutdown = (
     `Recebido ${signal}, desligando bot...`
   );
 
+  if (emotionDecayInterval) {
+    clearInterval(
+      emotionDecayInterval
+    );
+
+    emotionDecayInterval =
+      undefined;
+  }
+
   scheduler?.stop();
 
   ModeManager.clearModeTimeout();
+
+  /*
+   * Garante que o estado emocional
+   * atual seja salvo antes do encerramento.
+   */
+  MemoryService.saveEmotions(
+    EmotionEngine.getState()
+  );
 
   MemoryService.close();
 
@@ -132,6 +204,12 @@ async function main(): Promise<void> {
       'Erro ao iniciar o bot:',
       error
     );
+
+    if (emotionDecayInterval) {
+      clearInterval(
+        emotionDecayInterval
+      );
+    }
 
     MemoryService.close();
 
