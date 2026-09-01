@@ -434,14 +434,52 @@ export class ResponseEngine {
     const analysis =
       TextAnalyzer.analyze(content);
 
-    return candidates.filter(
-      candidate =>
-        ResponseValidator.isResponseAppropriate(
-          candidate.text,
-          analysis.isAggressive,
-          analysis.isCompliment
-        )
-    );
+    // Get emotion-driven score modifiers
+    const modifiers =
+      PersonalityEngine.getScoreModifiers(
+        emotionState
+      );
+
+    return candidates
+      .filter(
+        candidate =>
+          // 1. Context/safety filter
+          ResponseValidator.isResponseAppropriate(
+            candidate.text,
+            analysis.isAggressive,
+            analysis.isCompliment
+          ) &&
+          // 2. Personality consistency filter
+          PersonalityEngine.isConsistent(
+            candidate.text
+          )
+      )
+      .map(candidate => {
+        // 3. Apply emotion-based score modifiers per source
+        let bonus = 0;
+
+        if (candidate.source === 'aggressive') {
+          bonus = modifiers.aggressiveBoost;
+        } else if (candidate.source === 'compliment') {
+          bonus = modifiers.complimentModifier;
+        } else if (
+          candidate.source === 'mode' ||
+          candidate.source === 'intent'
+        ) {
+          bonus = modifiers.reflectiveBoost;
+        } else if (candidate.source === 'keyword') {
+          bonus = modifiers.curiosityBoost;
+        }
+
+        if (bonus === 0) {
+          return candidate;
+        }
+
+        return {
+          ...candidate,
+          score: candidate.score + bonus,
+        };
+      });
   }
 
   private static resolveResponse(
