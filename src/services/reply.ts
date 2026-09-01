@@ -5,8 +5,7 @@ import { TriggerManager } from './triggerManager';
 import { ModeManager } from './modeManager';
 import { RarityManager } from './rarityManager';
 import { ResponseEngine } from './responseEngine';
-import { ContextAnalyzer } from './contextAnalyzer';
-import { MemoryContextService } from './memoryContext';
+import { AutoMemoryService } from './autoMemoryService';
 
 const SPECIAL_COMMANDS = new Set([
   '!tiberio_caotico',
@@ -78,9 +77,10 @@ export class ReplyService {
       );
     }
 
-    ContextAnalyzer.registerUser(
+    AutoMemoryService.processMessage(
       message.author.id,
-      message.author.username
+      message.author.username,
+      message.content
     );
 
     return ResponseEngine.selectResponse(
@@ -149,15 +149,12 @@ export class ReplyService {
         }
 
         const memory =
-          MemoryContextService.build(
-            userId,
-            5
+          AutoMemoryService.getMemorySummary(
+            userId
           );
 
         return (
-          MemoryContextService.format(
-            memory
-          ) ||
+          memory ||
           'Os arquivos do Imperador estão vazios.'
         );
       }

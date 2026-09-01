@@ -8,11 +8,25 @@ import {
   validateConfig,
 } from './config/config';
 
-import { MemoryService } from './services/memoryService';
-import { SchedulerService } from './services/scheduler';
-import { ReplyService } from './services/reply';
-import { TriggerManager } from './services/triggerManager';
-import { ModeManager } from './services/modeManager';
+import {
+  MemoryService,
+} from './services/memoryService';
+
+import {
+  SchedulerService,
+} from './services/scheduler';
+
+import {
+  ReplyService,
+} from './services/reply';
+
+import {
+  TriggerManager,
+} from './services/triggerManager';
+
+import {
+  ModeManager,
+} from './services/modeManager';
 
 const client = new Client({
   intents: [

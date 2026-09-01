@@ -55,9 +55,10 @@ export class MemoryService {
       );
     }
 
-    this.database = new DatabaseSync(
-      resolvedPath
-    );
+    this.database =
+      new DatabaseSync(
+        resolvedPath
+      );
 
     this.database.exec(`
       PRAGMA journal_mode = WAL;
@@ -358,7 +359,7 @@ export class MemoryService {
           UPDATE conversation_memory
           SET
             summary = ?,
-            importance = ?,
+            importance = MAX(importance, ?),
             last_seen = ?
           WHERE id = ?
         `);
@@ -523,7 +524,9 @@ export class MemoryService {
       `);
 
     const result =
-      statement.get(id) as
+      statement.get(
+        id
+      ) as
         | ConversationMemory
         | undefined;
 
