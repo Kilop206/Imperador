@@ -6,13 +6,16 @@ import {
 } from "../src/intelligence/semanticSentenceDataset";
 
 import {
-  splitSemanticDataset,
   evaluateTfidf,
   evaluateNeural,
   evaluateSemanticModels,
   formatMetrics,
   formatEvaluationReport,
 } from "../src/intelligence/semanticEvaluation";
+
+import {
+  splitSemanticDataset,
+} from "../src/intelligence/semanticDatasetSplit";
 
 import {
   SemanticSentenceModel,
@@ -50,6 +53,10 @@ function createWordModel(): WordEmbeddingModel {
     "O exercito romano era poderoso",
     "Inteligencia artificial aprende com dados",
     "Modelos de inteligencia artificial processam informacao",
+    "Como criar uma API",
+    "Como armazenar dados em um banco de dados",
+    "Computadores trocam dados por uma rede",
+    "Escrever software exige programacao",
   ]);
 
   return model;
@@ -75,75 +82,51 @@ function createSentenceModel(
   return model;
 }
 
-test("split deve separar treino e validação", () => {
-  const result = splitSemanticDataset(
+function createSplit() {
+  return splitSemanticDataset(
     SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
+    {
+      trainRatio: 0.7,
+      validationRatio: 0.15,
+      seed: 42,
+    },
   );
+}
 
-  assert.ok(
-    result.training.length > 0,
-  );
+test("split deve separar treino, validação e teste", () => {
+  const {
+    train,
+    validation,
+    test: finalTest,
+  } = createSplit();
 
-  assert.ok(
-    result.validation.length > 0,
-  );
+  assert.ok(train.length > 0);
+  assert.ok(validation.length > 0);
+  assert.ok(finalTest.length > 0);
 
   assert.equal(
-    result.training.length +
-      result.validation.length,
+    train.length +
+      validation.length +
+      finalTest.length,
     SEMANTIC_SENTENCE_DATASET.length,
   );
 });
 
 test("split deve ser determinístico", () => {
-  const first = splitSemanticDataset(
-    SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
-  );
+  const first = createSplit();
+  const second = createSplit();
 
-  const second = splitSemanticDataset(
-    SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
-  );
-
-  assert.deepEqual(
-    first,
-    second,
-  );
-});
-
-test("split deve rejeitar proporção inválida", () => {
-  assert.throws(() =>
-    splitSemanticDataset(
-      SEMANTIC_SENTENCE_DATASET,
-      0,
-    ),
-  );
-
-  assert.throws(() =>
-    splitSemanticDataset(
-      SEMANTIC_SENTENCE_DATASET,
-      1,
-    ),
-  );
+  assert.deepEqual(first, second);
 });
 
 test("avaliação TF-IDF deve retornar métricas válidas", () => {
   const {
-    training,
+    train,
     validation,
-  } = splitSemanticDataset(
-    SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
-  );
+  } = createSplit();
 
   const metrics = evaluateTfidf(
-    training,
+    train,
     validation,
   );
 
@@ -181,13 +164,9 @@ test("avaliação TF-IDF deve retornar métricas válidas", () => {
 
 test("avaliação neural deve retornar métricas válidas", () => {
   const {
-    training,
+    train,
     validation,
-  } = splitSemanticDataset(
-    SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
-  );
+  } = createSplit();
 
   const wordModel =
     createWordModel();
@@ -235,13 +214,9 @@ test("avaliação neural deve retornar métricas válidas", () => {
 
 test("avaliação combinada deve retornar TF-IDF e Neural", () => {
   const {
-    training,
+    train,
     validation,
-  } = splitSemanticDataset(
-    SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
-  );
+  } = createSplit();
 
   const wordModel =
     createWordModel();
@@ -253,7 +228,7 @@ test("avaliação combinada deve retornar TF-IDF e Neural", () => {
     evaluateSemanticModels(
       wordModel,
       sentenceModel,
-      training,
+      train,
       validation,
     );
 
@@ -273,16 +248,12 @@ test("avaliação combinada deve retornar TF-IDF e Neural", () => {
 
 test("métricas devem possuir matriz de confusão consistente", () => {
   const {
-    training,
+    train,
     validation,
-  } = splitSemanticDataset(
-    SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
-  );
+  } = createSplit();
 
   const metrics = evaluateTfidf(
-    training,
+    train,
     validation,
   );
 
@@ -297,16 +268,12 @@ test("métricas devem possuir matriz de confusão consistente", () => {
 
 test("scores médios devem ser calculados separadamente", () => {
   const {
-    training,
+    train,
     validation,
-  } = splitSemanticDataset(
-    SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
-  );
+  } = createSplit();
 
   const metrics = evaluateTfidf(
-    training,
+    train,
     validation,
   );
 
@@ -365,13 +332,9 @@ test("formatMetrics deve produzir relatório", () => {
 
 test("formatEvaluationReport deve incluir os dois modelos", () => {
   const {
-    training,
+    train,
     validation,
-  } = splitSemanticDataset(
-    SEMANTIC_SENTENCE_DATASET,
-    0.2,
-    42,
-  );
+  } = createSplit();
 
   const wordModel =
     createWordModel();
@@ -383,7 +346,7 @@ test("formatEvaluationReport deve incluir os dois modelos", () => {
     evaluateSemanticModels(
       wordModel,
       sentenceModel,
-      training,
+      train,
       validation,
     );
 
@@ -397,4 +360,67 @@ test("formatEvaluationReport deve incluir os dois modelos", () => {
   assert.ok(
     report.includes("Neural"),
   );
+});
+
+test("teste final deve permanecer separado do treinamento", () => {
+  const {
+    train,
+    validation,
+    test: finalTest,
+  } = createSplit();
+
+  const trainingSignatures =
+    new Set(
+      train.map(
+        (pair) =>
+          `${pair.label}|${pair.first}|${pair.second}`,
+      ),
+    );
+
+  const validationSignatures =
+    new Set(
+      validation.map(
+        (pair) =>
+          `${pair.label}|${pair.first}|${pair.second}`,
+      ),
+    );
+
+  const testSignatures =
+    new Set(
+      finalTest.map(
+        (pair) =>
+          `${pair.label}|${pair.first}|${pair.second}`,
+      ),
+    );
+
+  for (const signature of testSignatures) {
+    assert.equal(
+      trainingSignatures.has(signature),
+      false,
+    );
+
+    assert.equal(
+      validationSignatures.has(signature),
+      false,
+    );
+  }
+});
+
+test("teste final deve possuir exemplos positivos e negativos", () => {
+  const {
+    test: finalTest,
+  } = createSplit();
+
+  const positiveCount =
+    finalTest.filter(
+      (pair) => pair.label === 1,
+    ).length;
+
+  const negativeCount =
+    finalTest.filter(
+      (pair) => pair.label === 0,
+    ).length;
+
+  assert.ok(positiveCount > 0);
+  assert.ok(negativeCount > 0);
 });

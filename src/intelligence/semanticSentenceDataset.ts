@@ -4,7 +4,21 @@ export interface SemanticSentencePair {
   label: 0 | 1;
 }
 
+export type SemanticSentenceSplit =
+  | "train"
+  | "validation"
+  | "test";
+
+export interface LabeledSemanticSentencePair
+  extends SemanticSentencePair {
+  split: SemanticSentenceSplit;
+}
+
 export const SEMANTIC_SENTENCE_DATASET: SemanticSentencePair[] = [
+  // ============================================================
+  // HISTÓRIA — POSITIVOS
+  // ============================================================
+
   {
     first: "Por que Roma caiu?",
     second: "Qual foi a causa da queda de Roma?",
@@ -16,7 +30,7 @@ export const SEMANTIC_SENTENCE_DATASET: SemanticSentencePair[] = [
     label: 1,
   },
   {
-    first: "Quem foi o responsavel pela queda de Roma?",
+    first: "Quem foi responsavel pela queda de Roma?",
     second: "Quem contribuiu para a decadencia do Imperio Romano?",
     label: 1,
   },
@@ -46,6 +60,21 @@ export const SEMANTIC_SENTENCE_DATASET: SemanticSentencePair[] = [
     label: 1,
   },
   {
+    first: "Julio Cesar liderou os romanos?",
+    second: "Julio Cesar foi um lider de Roma?",
+    label: 1,
+  },
+  {
+    first: "Roma foi uma grande potencia?",
+    second: "O Imperio Romano teve grande poder?",
+    label: 1,
+  },
+
+  // ============================================================
+  // TECNOLOGIA — POSITIVOS
+  // ============================================================
+
+  {
     first: "Como programar um computador?",
     second: "Como escrever codigo em uma linguagem de programacao?",
     label: 1,
@@ -55,6 +84,110 @@ export const SEMANTIC_SENTENCE_DATASET: SemanticSentencePair[] = [
     second: "Como funciona a inteligencia artificial?",
     label: 1,
   },
+  {
+    first: "Como criar uma API?",
+    second: "Como desenvolver uma API para uma aplicacao?",
+    label: 1,
+  },
+  {
+    first: "Como armazenar dados?",
+    second: "Como salvar informacoes em um banco de dados?",
+    label: 1,
+  },
+  {
+    first: "O que e um banco de dados?",
+    second: "Para que serve um sistema de armazenamento de dados?",
+    label: 1,
+  },
+  {
+    first: "Como funciona uma rede?",
+    second: "Como computadores trocam dados por uma rede?",
+    label: 1,
+  },
+  {
+    first: "O que e programacao?",
+    second: "O que significa escrever software?",
+    label: 1,
+  },
+  {
+    first: "Como funciona um algoritmo?",
+    second: "Como um algoritmo resolve um problema?",
+    label: 1,
+  },
+  {
+    first: "Como instalar um programa?",
+    second: "Como colocar um software no computador?",
+    label: 1,
+  },
+  {
+    first: "O que e aprendizado de maquina?",
+    second: "Como funciona machine learning?",
+    label: 1,
+  },
+
+  // ============================================================
+  // PERGUNTAS — POSITIVOS
+  // ============================================================
+
+  {
+    first: "Por que as pessoas estudam?",
+    second: "Qual e o motivo para estudar?",
+    label: 1,
+  },
+  {
+    first: "Como resolver esse problema?",
+    second: "Qual e a maneira de solucionar essa questao?",
+    label: 1,
+  },
+  {
+    first: "O que isso significa?",
+    second: "Qual e o significado disso?",
+    label: 1,
+  },
+  {
+    first: "Quando isso aconteceu?",
+    second: "Em que momento isso ocorreu?",
+    label: 1,
+  },
+  {
+    first: "Onde aconteceu a batalha?",
+    second: "Em qual lugar ocorreu a batalha?",
+    label: 1,
+  },
+
+  // ============================================================
+  // GENERICAMENTE RELACIONADAS — POSITIVOS
+  // ============================================================
+
+  {
+    first: "O computador ficou lento.",
+    second: "A maquina esta com baixo desempenho.",
+    label: 1,
+  },
+  {
+    first: "O programa apresentou um erro.",
+    second: "O software encontrou uma falha.",
+    label: 1,
+  },
+  {
+    first: "A rede caiu.",
+    second: "A conexao foi interrompida.",
+    label: 1,
+  },
+  {
+    first: "Ele ficou muito irritado.",
+    second: "Ele demonstrou grande raiva.",
+    label: 1,
+  },
+  {
+    first: "Estou muito feliz.",
+    second: "Estou bastante contente.",
+    label: 1,
+  },
+
+  // ============================================================
+  // HISTÓRIA — NEGATIVOS
+  // ============================================================
 
   {
     first: "Por que Roma caiu?",
@@ -106,4 +239,84 @@ export const SEMANTIC_SENTENCE_DATASET: SemanticSentencePair[] = [
     second: "Qual foi a capital do Imperio Romano?",
     label: 0,
   },
+
+  // ============================================================
+  // TECNOLOGIA — NEGATIVOS
+  // ============================================================
+
+  {
+    first: "Como criar uma API?",
+    second: "Quem foi Julio Cesar?",
+    label: 0,
+  },
+  {
+    first: "Como armazenar dados?",
+    second: "Por que Roma entrou em decadencia?",
+    label: 0,
+  },
+  {
+    first: "Como funciona uma rede?",
+    second: "Como morreu Julio Cesar?",
+    label: 0,
+  },
+  {
+    first: "O que e programacao?",
+    second: "Quando caiu o Imperio Romano?",
+    label: 0,
+  },
+  {
+    first: "Como funciona um algoritmo?",
+    second: "Qual foi a causa da queda de Roma?",
+    label: 0,
+  },
+  {
+    first: "O que e um banco de dados?",
+    second: "Como era o exercito romano?",
+    label: 0,
+  },
+  {
+    first: "Como instalar um programa?",
+    second: "Quem governou Roma?",
+    label: 0,
+  },
+  {
+    first: "O que e aprendizado de maquina?",
+    second: "Onde aconteceu uma batalha romana?",
+    label: 0,
+  },
+
+  // ============================================================
+  // GENERICAMENTE NEGATIVOS
+  // ============================================================
+
+  {
+    first: "O computador ficou lento.",
+    second: "Julio Cesar foi um lider romano.",
+    label: 0,
+  },
+  {
+    first: "A rede caiu.",
+    second: "Roma entrou em decadencia.",
+    label: 0,
+  },
+  {
+    first: "Estou muito feliz.",
+    second: "O banco de dados possui dez tabelas.",
+    label: 0,
+  },
+  {
+    first: "Ele ficou muito irritado.",
+    second: "Como instalar um programa?",
+    label: 0,
+  },
+  {
+    first: "O programa apresentou um erro.",
+    second: "Qual foi a capital do Imperio Romano?",
+    label: 0,
+  },
 ];
+
+export const SEMANTIC_TRAINING_DATASET: SemanticSentencePair[] =
+  [
+    ...SEMANTIC_SENTENCE_DATASET,
+  ];
