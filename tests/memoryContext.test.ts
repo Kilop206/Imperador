@@ -1,11 +1,15 @@
 import { strict as assert } from 'node:assert';
+
 import {
   afterEach,
   beforeEach,
   test,
 } from 'node:test';
 
-import { MemoryService } from '../src/services/memoryService';
+import {
+  MemoryService,
+} from '../src/services/memoryService';
+
 import {
   MemoryContextService,
 } from '../src/services/memoryContext';
@@ -95,6 +99,64 @@ test(
       formatted.includes(
         'roma'
       )
+    );
+  }
+);
+
+test(
+  'encontra memória relevante',
+  () => {
+    MemoryService.upsertUser(
+      '123',
+      'Kilop'
+    );
+
+    MemoryService.saveConversation(
+      '123',
+      'roma',
+      'Usuário falou sobre Roma.',
+      8
+    );
+
+    const memory =
+      MemoryContextService.findRelevantMemory(
+        '123',
+        'Você lembra de Roma?'
+      );
+
+    assert.ok(memory);
+
+    assert.equal(
+      memory?.topic,
+      'roma'
+    );
+  }
+);
+
+test(
+  'ignora memória irrelevante',
+  () => {
+    MemoryService.upsertUser(
+      '123',
+      'Kilop'
+    );
+
+    MemoryService.saveConversation(
+      '123',
+      'roma',
+      'Usuário falou sobre Roma.',
+      8
+    );
+
+    const memory =
+      MemoryContextService.findRelevantMemory(
+        '123',
+        'Qual é a situação do Tártaro?'
+      );
+
+    assert.equal(
+      memory,
+      null
     );
   }
 );

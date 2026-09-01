@@ -53,7 +53,8 @@ export class ReplyService {
     return (
       ResponseEngine
         .generateCandidates(
-          message.content
+          message.content,
+          message.author.id
         )
         .length > 0
     );
@@ -67,24 +68,31 @@ export class ReplyService {
         .toLowerCase()
         .trim();
 
+    const userId =
+      message.author.id;
+
+    const username =
+      message.author.username;
+
     if (
       SPECIAL_COMMANDS.has(command)
     ) {
       return this.handleCommand(
         message.content,
-        message.author.id,
-        message.author.username
+        userId,
+        username
       );
     }
 
     AutoMemoryService.processMessage(
-      message.author.id,
-      message.author.username,
+      userId,
+      username,
       message.content
     );
 
     return ResponseEngine.selectResponse(
-      message.content
+      message.content,
+      userId
     );
   }
 
@@ -100,34 +108,44 @@ export class ReplyService {
       case '!tiberio_caotico':
       case '!tiberio_bebado':
         ModeManager.setMode('drunk');
+
         return 'Tibério aceita oficialmente esta contribuição ao Império.';
 
       case '!tiberio_normal':
         ModeManager.resetToNormal();
+
         return 'Ordem restaurada.';
 
       case '!tiberio_ameaca':
         ModeManager.setMode('threat');
+
         return 'Sua insolência foi registrada.';
 
       case '!tiberio_humor':
         ModeManager.setMode('humor');
+
         return 'Roma não é contrária ao entretenimento.';
 
       case '!tiberio_serio':
         ModeManager.setMode('serious');
+
         return 'O Imperador assume a postura apropriada.';
 
       case '!tiberio_nostalgico':
         ModeManager.setMode('nostalgic');
+
         return 'O passado nem sempre permanece no passado.';
 
       case '!tiberio_filosofico':
-        ModeManager.setMode('philosophical');
+        ModeManager.setMode(
+          'philosophical'
+        );
+
         return 'Existem questões que transcendem o Império.';
 
       case '!tiberio_romano':
         ModeManager.setMode('roman');
+
         return 'SPQR.';
 
       case '!tiberio_status':
@@ -141,6 +159,7 @@ export class ReplyService {
 
       case '!tiberio_triggers':
         TriggerManager.resetTriggers();
+
         return 'Triggers resetados.';
 
       case '!tiberio_memoria': {

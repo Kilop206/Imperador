@@ -86,4 +86,115 @@ export class MemoryContextService {
 
     return lines.join('\n');
   }
+
+  static findRelevantMemory(
+    userId: string,
+    content: string
+  ): ConversationMemory | null {
+    const context =
+      this.build(userId, 10);
+
+    if (
+      context.recentConversations.length === 0
+    ) {
+      return null;
+    }
+
+    const normalized =
+      content
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(
+          /[\u0300-\u036f]/g,
+          ''
+        );
+
+    let bestMemory:
+      ConversationMemory | null = null;
+
+    let bestScore = 0;
+
+    for (
+      const memory
+      of context.recentConversations
+    ) {
+      const topic =
+        memory.topic
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(
+            /[\u0300-\u036f]/g,
+            ''
+          );
+
+      const summary =
+        memory.summary
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(
+            /[\u0300-\u036f]/g,
+            ''
+          );
+
+      let score = 0;
+
+      if (
+        normalized.includes(topic)
+      ) {
+        score += 10;
+      }
+
+      const summaryWords =
+        summary
+          .split(/\s+/)
+          .filter(
+            word =>
+              word.length >= 4
+          );
+
+      for (
+        const word of summaryWords
+      ) {
+        if (
+          normalized.includes(word)
+        ) {
+          score += 1;
+        }
+      }
+
+      score +=
+        memory.importance * 0.5;
+
+      if (
+        score > bestScore
+      ) {
+        bestScore = score;
+        bestMemory = memory;
+      }
+    }
+
+    return bestScore >= 10
+      ? bestMemory
+      : null;
+  }
+
+  static buildMemoryResponse(
+    userId: string,
+    content: string
+  ): string | null {
+    const memory =
+      this.findRelevantMemory(
+        userId,
+        content
+      );
+
+    if (!memory) {
+      return null;
+    }
+
+    return (
+      `O Imperador se recorda de ${memory.topic}. ` +
+      `${memory.summary}`
+    );
+  }
 }

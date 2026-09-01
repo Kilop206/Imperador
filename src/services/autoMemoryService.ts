@@ -4,6 +4,7 @@ import {
 } from './textAnalyzer';
 
 import {
+  MemoryEventType,
   MemoryService,
 } from './memoryService';
 
@@ -122,6 +123,7 @@ const IMPORTANT_TOPIC_WORDS = new Set([
   'antigamente',
   'infância',
   'juventude',
+  'tempos',
   'história',
   'recordar',
 
@@ -144,23 +146,141 @@ export class AutoMemoryService {
     username: string,
     content: string
   ): void {
+    const analysis =
+      TextAnalyzer.analyze(content);
+
     MemoryService.upsertUser(
       userId,
       username
     );
 
+    MemoryService.saveEvent(
+      userId,
+      this.getEventType(
+        analysis.intent
+      ),
+      content,
+      this.calculateEventImportance(
+        analysis.intent,
+        content
+      )
+    );
+
     const candidate =
       this.extractCandidate(content);
 
-    if (!candidate) {
-      return;
+    if (candidate) {
+      MemoryService.saveConversation(
+        userId,
+        candidate.topic,
+        candidate.summary,
+        candidate.importance
+      );
+
+      this.saveTopicEvent(
+        userId,
+        candidate
+      );
+    }
+  }
+
+  private static getEventType(
+    intent: MessageIntent
+  ): MemoryEventType {
+  switch (intent) {
+      case 'question':
+      return 'question';
+
+      case 'compliment':
+      return 'compliment';
+
+      case 'aggressive':
+      return 'insult';
+
+      case 'roman':
+      return 'roman';
+
+      case 'philosophical':
+      return 'philosophical';
+
+      case 'serious':
+      return 'serious';
+
+      case 'nostalgic':
+      return 'nostalgic';
+
+      case 'humor':
+      return 'humor';
+
+      default:
+      return 'message';
+    }
+  }
+
+  private static saveTopicEvent(
+    userId: string,
+    candidate: MemoryCandidate
+  ): void {
+    MemoryService.saveEvent(
+      userId,
+      'topic',
+      `Tópico detectado: ${candidate.topic}`,
+      candidate.importance
+    );
+  }
+
+  private static calculateEventImportance(
+    intent: MessageIntent,
+    content: string
+  ): number {
+    let importance = 1;
+
+    if (
+      intent === 'question'
+    ) {
+      importance += 1;
     }
 
-    MemoryService.saveConversation(
-      userId,
-      candidate.topic,
-      candidate.summary,
-      candidate.importance
+    if (
+      intent === 'compliment'
+    ) {
+      importance += 1;
+    }
+
+    if (
+      intent === 'aggressive'
+    ) {
+      importance += 2;
+    }
+
+    if (
+      intent === 'serious' ||
+      intent === 'philosophical'
+    ) {
+      importance += 2;
+    }
+
+    if (
+      intent === 'nostalgic'
+    ) {
+      importance += 1;
+    }
+
+    if (
+      content.includes('?')
+    ) {
+      importance += 1;
+    }
+
+    if (
+      content.length > 120
+    ) {
+      importance += 1;
+    }
+
+    return Math.min(
+      importance,
+      10
     );
   }
 
@@ -219,7 +339,10 @@ export class AutoMemoryService {
       let score =
         topic.score;
 
-      for (const trigger of topic.triggers) {
+      for (
+        const trigger
+        of topic.triggers
+      ) {
         const isPhrase =
           trigger.includes(' ');
 
@@ -240,7 +363,9 @@ export class AutoMemoryService {
         }
       }
 
-      if (score > topic.score) {
+      if (
+        score > topic.score
+      ) {
         candidates.push({
           topic,
           score,
@@ -259,17 +384,10 @@ export class AutoMemoryService {
         .name;
     }
 
-    const intentTopic =
-      this.getIntentTopic(
-        intent,
-        tokens
-      );
-
-    if (intentTopic) {
-      return intentTopic;
-    }
-
-    return null;
+    return this.getIntentTopic(
+      intent,
+      tokens
+    );
   }
 
   private static getIntentTopic(
@@ -281,42 +399,42 @@ export class AutoMemoryService {
         MessageIntent,
         readonly string[]
       >> = {
-        philosophical: [
-          'vida',
-          'morte',
-          'sentido',
-          'existência',
-          'propósito',
-          'destino',
-          'universo',
-          'realidade',
-          'verdade',
-          'consciência',
-          'alma',
-          'espírito',
-        ],
+      philosophical: [
+        'vida',
+        'morte',
+        'sentido',
+        'existência',
+        'propósito',
+        'destino',
+        'universo',
+        'realidade',
+        'verdade',
+        'consciência',
+        'alma',
+        'espírito',
+      ],
 
-        serious: [
-          'morte',
-          'guerra',
-          'batalha',
-          'sangue',
-          'sofrimento',
-          'dor',
-          'tristeza',
-          'funeral',
-          'tragédia',
-        ],
+      serious: [
+        'morte',
+        'guerra',
+        'batalha',
+        'sangue',
+        'sofrimento',
+        'dor',
+        'tristeza',
+        'funeral',
+        'tragédia',
+      ],
 
-        nostalgic: [
-          'passado',
-          'antigo',
-          'lembrar',
-          'saudade',
-          'memória',
-          'história',
-        ],
-      };
+      nostalgic: [
+        'passado',
+        'antigo',
+        'lembrar',
+        'saudade',
+        'memória',
+        'história',
+      ],
+    };
 
     const candidates =
       fallbackTopics[intent];
@@ -394,7 +512,9 @@ export class AutoMemoryService {
       }
 
       const existing =
-        topics.get(normalizedName);
+        topics.get(
+          normalizedName
+        );
 
       if (existing) {
         if (
@@ -599,9 +719,17 @@ export class AutoMemoryService {
         5
       );
 
+    const events =
+      MemoryService.getImportantUserEvents(
+        userId,
+        4,
+        5
+      );
+
     if (
       !user &&
-      conversations.length === 0
+      conversations.length === 0 &&
+      events.length === 0
     ) {
       return '';
     }
@@ -631,6 +759,23 @@ export class AutoMemoryService {
       ) {
         lines.push(
           `- ${conversation.topic}: ${conversation.summary}`
+        );
+      }
+    }
+
+    if (
+      events.length > 0
+    ) {
+      lines.push(
+        'Eventos importantes:'
+      );
+
+      for (
+        const event
+        of events
+      ) {
+        lines.push(
+          `- [${event.type}] ${event.content}`
         );
       }
     }

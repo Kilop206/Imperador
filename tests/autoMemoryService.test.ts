@@ -164,3 +164,82 @@ test(
     );
   }
 );
+
+test(
+  'registra evento automaticamente',
+  () => {
+    AutoMemoryService.processMessage(
+      '123',
+      'Kilop',
+      'Qual é a história de Roma?'
+    );
+
+    const events =
+      MemoryService.getUserEvents(
+        '123'
+      );
+
+    assert.equal(
+      events.length > 0,
+      true
+    );
+
+    assert.equal(
+      events[0].userId,
+      '123'
+    );
+
+    assert.equal(
+      events[0].content,
+      'Qual é a história de Roma?'
+    );
+  }
+);
+
+test(
+  'registra elogio como evento',
+  () => {
+    AutoMemoryService.processMessage(
+      '123',
+      'Kilop',
+      'Tibério é incrível'
+    );
+
+    const events =
+      MemoryService.getUserEvents(
+        '123'
+      );
+
+    assert.ok(
+      events.some(
+        event =>
+          event.type ===
+          'compliment'
+      )
+    );
+  }
+);
+
+test(
+  'registra insulto como evento',
+  () => {
+    AutoMemoryService.processMessage(
+      '123',
+      'Kilop',
+      'Você é um idiota'
+    );
+
+    const events =
+      MemoryService.getUserEvents(
+        '123'
+      );
+
+    assert.ok(
+      events.some(
+        event =>
+          event.type ===
+          'insult'
+      )
+    );
+  }
+);

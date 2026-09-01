@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+
 import {
   afterEach,
   beforeEach,
@@ -289,6 +290,98 @@ test(
     assert.equal(
       conversations[0].topic,
       'tártaro'
+    );
+  }
+);
+
+test(
+  'salva evento',
+  () => {
+    const event =
+      MemoryService.saveEvent(
+        '123',
+        'question',
+        'Qual é o destino de Roma?',
+        5
+      );
+
+    assert.equal(
+      event.userId,
+      '123'
+    );
+
+    assert.equal(
+      event.type,
+      'question'
+    );
+
+    assert.equal(
+      event.importance,
+      5
+    );
+  }
+);
+
+test(
+  'recupera eventos do usuário',
+  () => {
+    MemoryService.saveEvent(
+      '123',
+      'question',
+      'Pergunta sobre Roma.',
+      5
+    );
+
+    MemoryService.saveEvent(
+      '123',
+      'compliment',
+      'Elogiou Tibério.',
+      3
+    );
+
+    const events =
+      MemoryService.getUserEvents(
+        '123'
+      );
+
+    assert.equal(
+      events.length,
+      2
+    );
+  }
+);
+
+test(
+  'recupera apenas eventos importantes',
+  () => {
+    MemoryService.saveEvent(
+      '123',
+      'message',
+      'Mensagem comum.',
+      2
+    );
+
+    MemoryService.saveEvent(
+      '123',
+      'question',
+      'Pergunta importante.',
+      8
+    );
+
+    const events =
+      MemoryService.getImportantUserEvents(
+        '123',
+        5
+      );
+
+    assert.equal(
+      events.length,
+      1
+    );
+
+    assert.equal(
+      events[0].importance,
+      8
     );
   }
 );
