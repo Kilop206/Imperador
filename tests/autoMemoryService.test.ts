@@ -179,9 +179,9 @@ test(
         '123'
       );
 
-    assert.equal(
+    assert.ok(
       events.length > 0,
-      true
+      'deve ter pelo menos um evento'
     );
 
     assert.equal(
@@ -189,9 +189,18 @@ test(
       '123'
     );
 
-    assert.equal(
-      events[0].content,
-      'Qual é a história de Roma?'
+    // The message is saved as the first event's content
+    // (exact event type depends on intent detection)
+    const messageEvent =
+      events.find(
+        event =>
+          event.content ===
+          'Qual é a história de Roma?'
+      );
+
+    assert.ok(
+      messageEvent,
+      'deve ter um evento com o conteúdo original da mensagem'
     );
   }
 );

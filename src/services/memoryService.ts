@@ -2,6 +2,10 @@ import { DatabaseSync } from 'node:sqlite';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import {
+  EmotionState,
+} from '../types/emotion';
+
 export interface WordMemory {
   word: string;
   count: number;
@@ -145,6 +149,11 @@ export class MemoryService {
 
       CREATE INDEX IF NOT EXISTS idx_memory_events_created
       ON memory_events(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS emotion_state (
+        key   TEXT PRIMARY KEY,
+        value REAL NOT NULL DEFAULT 0
+      ) STRICT;
     `);
   }
 
@@ -709,6 +718,50 @@ export class MemoryService {
     statement.run(id);
   }
 
+  static saveEmotions(
+    state: EmotionState
+  ): void {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        INSERT INTO emotion_state (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value
+      `);
+
+    for (const [key, value] of Object.entries(
+      state
+    )) {
+      statement.run(key, value);
+    }
+  }
+
+  static loadEmotions(): Partial<EmotionState> {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        SELECT key, value FROM emotion_state
+      `);
+
+    const rows = statement.all() as {
+      key: string;
+      value: number;
+    }[];
+
+    const result: Partial<EmotionState> = {};
+
+    for (const row of rows) {
+      (result as Record<string, number>)[
+        row.key
+      ] = row.value;
+    }
+
+    return result;
+  }
+
   static clear(): void {
     this.ensureInitialized();
 
@@ -717,6 +770,7 @@ export class MemoryService {
       DELETE FROM conversation_memory;
       DELETE FROM user_memory;
       DELETE FROM word_memory;
+      DELETE FROM emotion_state;
     `);
   }
 

@@ -12,6 +12,12 @@ import {
 import {
   MemoryContextService,
 } from './memoryContext';
+import {
+  PersonalityEngine,
+} from '../intelligence/personalityEngine';
+import {
+  emotionState,
+} from '../state/emotionState';
 
 export type ResponseSource =
   | 'memory'

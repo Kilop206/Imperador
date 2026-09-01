@@ -28,6 +28,10 @@ import {
   ModeManager,
 } from './services/modeManager';
 
+import {
+  restoreEmotions,
+} from './state/emotionState';
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -46,6 +50,11 @@ client.once('ready', () => {
   );
 
   MemoryService.initialize();
+
+  // Restore persisted emotional state
+  restoreEmotions(
+    MemoryService.loadEmotions()
+  );
 
   scheduler =
     new SchedulerService(client);
