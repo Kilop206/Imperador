@@ -3,6 +3,10 @@ import {
 } from '../intelligence/intentLearningService';
 
 import {
+  IntentCandidateService,
+} from '../intelligence/intentCandidateService';
+
+import {
   IntentClassifier,
 } from '../intelligence/intentClassifier';
 
@@ -331,39 +335,17 @@ export class TextAnalyzer {
 
     return (
       content.includes('?') ||
-      normalized.startsWith(
-        'como '
-      ) ||
-      normalized.startsWith(
-        'por que '
-      ) ||
-      normalized.startsWith(
-        'porque '
-      ) ||
-      normalized.startsWith(
-        'quando '
-      ) ||
-      normalized.startsWith(
-        'onde '
-      ) ||
-      normalized.startsWith(
-        'quem '
-      ) ||
-      normalized.startsWith(
-        'qual '
-      ) ||
-      normalized.startsWith(
-        'quais '
-      ) ||
-      normalized.startsWith(
-        'quanto '
-      ) ||
-      normalized.startsWith(
-        'quantos '
-      ) ||
-      normalized.startsWith(
-        'quantas '
-      )
+      normalized.startsWith('como ') ||
+      normalized.startsWith('por que ') ||
+      normalized.startsWith('porque ') ||
+      normalized.startsWith('quando ') ||
+      normalized.startsWith('onde ') ||
+      normalized.startsWith('quem ') ||
+      normalized.startsWith('qual ') ||
+      normalized.startsWith('quais ') ||
+      normalized.startsWith('quanto ') ||
+      normalized.startsWith('quantos ') ||
+      normalized.startsWith('quantas ')
     );
   }
 
@@ -517,6 +499,11 @@ export class TextAnalyzer {
       IntentClassifier.predict(
         content
       );
+
+    IntentCandidateService.collect(
+      content,
+      prediction
+    );
 
     if (
       prediction.confidence >=

@@ -25,12 +25,20 @@ import {
 } from './autoMemoryService';
 
 import {
-  IntentLearningService,
-} from '../intelligence/intentLearningService';
-
-import {
   MessageIntent,
 } from './textAnalyzer';
+
+import {
+  IntentCandidateService,
+} from '../intelligence/intentCandidateService';
+
+import {
+  IntentFeedbackService,
+} from '../intelligence/intentFeedbackService';
+
+import {
+  IntentLearningService,
+} from '../intelligence/intentLearningService';
 
 const SPECIAL_COMMANDS =
   new Set([
@@ -47,6 +55,9 @@ const SPECIAL_COMMANDS =
     '!tiberio_raro',
     '!tiberio_triggers',
     '!tiberio_memoria',
+    '!tiberio_candidatos',
+    '!tiberio_rotular',
+    '!tiberio_rejeitar',
   ]);
 
 const VALID_INTENTS:
@@ -65,6 +76,172 @@ const VALID_INTENTS:
 ];
 
 export class ReplyService {
+  private static getLearningCandidates():
+  string {
+  const candidates =
+    IntentCandidateService.getPending(
+      10
+    );
+
+  if (
+    candidates.length === 0
+  ) {
+    return (
+      'Não existem candidatos aguardando rotulagem.'
+    );
+  }
+
+  const lines = [
+    '=== Candidatos de aprendizado ===',
+  ];
+
+  for (
+    const candidate of candidates
+  ) {
+    lines.push(
+      `#${candidate.id} | ` +
+      `"${candidate.text}" | ` +
+      `previsto: ${candidate.predictedIntent} | ` +
+      `confiança: ${(candidate.confidence * 100).toFixed(2)}%`
+    );
+  }
+
+  lines.push('');
+  lines.push(
+    'Para rotular: !tiberio_rotular ID intenção'
+  );
+  lines.push(
+    'Para rejeitar: !tiberio_rejeitar ID'
+  );
+
+  return lines.join('\n');
+}
+
+  private static handleCandidateLabel(
+    content: string
+  ): string {
+    const payload =
+      content
+        .slice(
+          '!tiberio_rotular'.length
+        )
+        .trim();
+
+    const parts =
+      payload.split(/\s+/);
+
+    if (
+      parts.length < 2
+    ) {
+      return (
+        'Formato: !tiberio_rotular ID intenção'
+      );
+    }
+
+    const id =
+      Number.parseInt(
+        parts[0],
+        10
+      );
+
+    const intent =
+      parts[1].toLowerCase();
+
+    const validIntents:
+      readonly MessageIntent[] = [
+      'aggressive',
+      'compliment',
+      'question',
+      'greeting',
+      'farewell',
+      'humor',
+      'serious',
+      'nostalgic',
+      'philosophical',
+      'roman',
+      'neutral',
+    ];
+
+    if (
+      !Number.isInteger(id)
+    ) {
+      return 'ID inválido.';
+    }
+
+    if (
+      !validIntents.includes(
+        intent as MessageIntent
+      )
+    ) {
+      return (
+        `Intenção inválida. Use: ${validIntents.join(', ')}`
+      );
+    }
+
+    const candidate =
+      IntentCandidateService.getById(
+        id
+      );
+
+    if (!candidate) {
+      return (
+        `Candidato #${id} não encontrado.`
+      );
+    }
+
+    if (
+      candidate.reviewed
+    ) {
+      return (
+        `Candidato #${id} já foi revisado.`
+      );
+    }
+
+    IntentFeedbackService.approve(
+      id,
+      intent as MessageIntent
+    );
+
+    return (
+      `Candidato #${id} rotulado como "${intent}". ` +
+      `Modelo retreinado com ${IntentLearningServiceSafeCount()} exemplos.`
+    );
+  }
+
+  private static handleCandidateRejection(
+    content: string
+  ): string {
+    const payload =
+      content
+        .slice(
+          '!tiberio_rejeitar'.length
+        )
+        .trim();
+
+    const id =
+      Number.parseInt(
+        payload,
+        10
+      );
+
+    if (
+      !Number.isInteger(id)
+    ) {
+      return (
+        'Formato: !tiberio_rejeitar ID'
+      );
+    }
+
+    const rejected =
+      IntentFeedbackService.reject(
+        id
+      );
+
+    return rejected
+      ? `Candidato #${id} rejeitado.`
+      : `Candidato #${id} não encontrado.`;
+  }
+
   static shouldReply(
     message: Message
   ): boolean {
@@ -151,6 +328,33 @@ export class ReplyService {
       )
     ) {
       return this.handleLearningCommand(
+        content
+      );
+    }
+    
+    if (
+      command ===
+      '!tiberio_candidatos'
+    ) {
+      return this.getLearningCandidates();
+    }
+
+    if (
+      command.startsWith(
+        '!tiberio_rotular '
+      )
+    ) {
+      return this.handleCandidateLabel(
+        content
+      );
+    }
+
+    if (
+      command.startsWith(
+        '!tiberio_rejeitar '
+      )
+    ) {
+      return this.handleCandidateRejection(
         content
       );
     }
@@ -405,4 +609,10 @@ export class ReplyService {
       );
     }
   }
+}
+
+function IntentLearningServiceSafeCount():
+  number {
+  return IntentLearningService
+    .getModelTrainingCount();
 }
