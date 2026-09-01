@@ -1,3 +1,11 @@
+import {
+  IntentClassifier,
+} from '../intelligence/intentClassifier';
+
+import {
+  INTENT_DATASET,
+} from '../intelligence/intentDataset';
+
 export type MessageIntent =
   | 'aggressive'
   | 'compliment'
@@ -276,7 +284,9 @@ export class TextAnalyzer {
     );
   }
 
-  static detectIntent(content: string): MessageIntent {
+  static detectIntent(
+    content: string
+  ): MessageIntent {
     if (this.isAggressive(content)) {
       return 'aggressive';
     }
@@ -357,6 +367,19 @@ export class TextAnalyzer {
       return 'farewell';
     }
 
+    this.initializeMachineLearning();
+
+    const prediction =
+      IntentClassifier.predict(
+        content
+      );
+
+    if (
+      prediction.confidence >= 0.65
+    ) {
+      return prediction.intent;
+    }
+
     return 'neutral';
   }
 
@@ -373,5 +396,15 @@ export class TextAnalyzer {
       isQuestion: this.isQuestion(content),
       hasSarcasm: this.hasSarcasm(content),
     };
+  }
+
+  private static initializeMachineLearning(): void {
+    if (
+      !IntentClassifier.isTrained()
+    ) {
+      IntentClassifier.train(
+        INTENT_DATASET
+      );
+    }
   }
 }
