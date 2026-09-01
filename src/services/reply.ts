@@ -5,6 +5,8 @@ import { TriggerManager } from './triggerManager';
 import { ModeManager } from './modeManager';
 import { RarityManager } from './rarityManager';
 import { ResponseEngine } from './responseEngine';
+import { ContextAnalyzer } from './contextAnalyzer';
+import { MemoryContextService } from './memoryContext';
 
 const SPECIAL_COMMANDS = new Set([
   '!tiberio_caotico',
@@ -19,6 +21,7 @@ const SPECIAL_COMMANDS = new Set([
   '!tiberio_status',
   '!tiberio_raro',
   '!tiberio_triggers',
+  '!tiberio_memoria',
 ]);
 
 export class ReplyService {
@@ -49,9 +52,11 @@ export class ReplyService {
     }
 
     return (
-      ResponseEngine.generateCandidates(
-        message.content
-      ).length > 0
+      ResponseEngine
+        .generateCandidates(
+          message.content
+        )
+        .length > 0
     );
   }
 
@@ -67,9 +72,16 @@ export class ReplyService {
       SPECIAL_COMMANDS.has(command)
     ) {
       return this.handleCommand(
-        message.content
+        message.content,
+        message.author.id,
+        message.author.username
       );
     }
+
+    ContextAnalyzer.registerUser(
+      message.author.id,
+      message.author.username
+    );
 
     return ResponseEngine.selectResponse(
       message.content
@@ -77,7 +89,9 @@ export class ReplyService {
   }
 
   static handleCommand(
-    content: string
+    content: string,
+    userId?: string,
+    username?: string
   ): string | null {
     const command =
       content.toLowerCase().trim();
@@ -86,44 +100,34 @@ export class ReplyService {
       case '!tiberio_caotico':
       case '!tiberio_bebado':
         ModeManager.setMode('drunk');
-
         return 'Tibério aceita oficialmente esta contribuição ao Império.';
 
       case '!tiberio_normal':
         ModeManager.resetToNormal();
-
         return 'Ordem restaurada.';
 
       case '!tiberio_ameaca':
         ModeManager.setMode('threat');
-
         return 'Sua insolência foi registrada.';
 
       case '!tiberio_humor':
         ModeManager.setMode('humor');
-
         return 'Roma não é contrária ao entretenimento.';
 
       case '!tiberio_serio':
         ModeManager.setMode('serious');
-
         return 'O Imperador assume a postura apropriada.';
 
       case '!tiberio_nostalgico':
         ModeManager.setMode('nostalgic');
-
         return 'O passado nem sempre permanece no passado.';
 
       case '!tiberio_filosofico':
-        ModeManager.setMode(
-          'philosophical'
-        );
-
+        ModeManager.setMode('philosophical');
         return 'Existem questões que transcendem o Império.';
 
       case '!tiberio_romano':
         ModeManager.setMode('roman');
-
         return 'SPQR.';
 
       case '!tiberio_status':
@@ -137,8 +141,26 @@ export class ReplyService {
 
       case '!tiberio_triggers':
         TriggerManager.resetTriggers();
-
         return 'Triggers resetados.';
+
+      case '!tiberio_memoria': {
+        if (!userId) {
+          return 'Tibério não conseguiu identificar você.';
+        }
+
+        const memory =
+          MemoryContextService.build(
+            userId,
+            5
+          );
+
+        return (
+          MemoryContextService.format(
+            memory
+          ) ||
+          'Os arquivos do Imperador estão vazios.'
+        );
+      }
 
       default:
         return null;

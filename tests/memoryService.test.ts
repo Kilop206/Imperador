@@ -5,10 +5,17 @@ import {
   test,
 } from 'node:test';
 
-import { MemoryService } from '../src/services/memoryService';
+import {
+  MemoryService,
+} from '../src/services/memoryService';
 
 beforeEach(() => {
-  MemoryService.initialize();
+  MemoryService.close();
+
+  MemoryService.initialize(
+    ':memory:'
+  );
+
   MemoryService.clear();
 });
 
@@ -137,6 +144,151 @@ test(
     assert.equal(
       words[0].word,
       'roma'
+    );
+  }
+);
+
+test(
+  'registra usuário',
+  () => {
+    const user =
+      MemoryService.upsertUser(
+        '123',
+        'Kilop'
+      );
+
+    assert.equal(
+      user.userId,
+      '123'
+    );
+
+    assert.equal(
+      user.username,
+      'Kilop'
+    );
+
+    assert.equal(
+      user.messageCount,
+      1
+    );
+  }
+);
+
+test(
+  'incrementa mensagens do usuário',
+  () => {
+    MemoryService.upsertUser(
+      '123',
+      'Kilop'
+    );
+
+    const user =
+      MemoryService.upsertUser(
+        '123',
+        'Kilop'
+      );
+
+    assert.equal(
+      user.messageCount,
+      2
+    );
+  }
+);
+
+test(
+  'salva memória de conversa',
+  () => {
+    const memory =
+      MemoryService.saveConversation(
+        '123',
+        'roma',
+        'Usuário demonstrou interesse por Roma.',
+        5
+      );
+
+    assert.equal(
+      memory.userId,
+      '123'
+    );
+
+    assert.equal(
+      memory.topic,
+      'roma'
+    );
+
+    assert.equal(
+      memory.importance,
+      5
+    );
+  }
+);
+
+test(
+  'atualiza memória existente do mesmo tópico',
+  () => {
+    const first =
+      MemoryService.saveConversation(
+        '123',
+        'roma',
+        'Primeiro resumo.',
+        2
+      );
+
+    const second =
+      MemoryService.saveConversation(
+        '123',
+        'roma',
+        'Segundo resumo.',
+        7
+      );
+
+    assert.equal(
+      first.id,
+      second.id
+    );
+
+    assert.equal(
+      second.summary,
+      'Segundo resumo.'
+    );
+
+    assert.equal(
+      second.importance,
+      7
+    );
+  }
+);
+
+test(
+  'recupera memórias do usuário',
+  () => {
+    MemoryService.saveConversation(
+      '123',
+      'roma',
+      'Interesse em Roma.',
+      5
+    );
+
+    MemoryService.saveConversation(
+      '123',
+      'tártaro',
+      'Falou sobre Tártaro.',
+      8
+    );
+
+    const conversations =
+      MemoryService.getUserConversations(
+        '123'
+      );
+
+    assert.equal(
+      conversations.length,
+      2
+    );
+
+    assert.equal(
+      conversations[0].topic,
+      'tártaro'
     );
   }
 );
