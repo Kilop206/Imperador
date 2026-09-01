@@ -18,6 +18,9 @@ import {
 import {
   emotionState,
 } from '../state/emotionState';
+import {
+  ConversationMemoryEngine,
+} from '../intelligence/conversationMemory';
 
 export type ResponseSource =
   | 'memory'
@@ -135,6 +138,18 @@ export class ResponseEngine {
         userId
       );
 
+    // Record into short-term memory regardless of whether we reply
+    if (userId) {
+      const analysis =
+        TextAnalyzer.analyze(content);
+
+      ConversationMemoryEngine.recordInteraction(
+        userId,
+        content,
+        analysis.intent
+      );
+    }
+
     if (candidates.length === 0) {
       return null;
     }
@@ -175,8 +190,9 @@ export class ResponseEngine {
     content: string,
     candidates: ResponseCandidate[]
   ): void {
+    // Use the new engine which supports relevance scoring + short-term
     const memoryResponse =
-      MemoryContextService.buildMemoryResponse(
+      ConversationMemoryEngine.buildMemoryResponse(
         userId,
         content
       );
