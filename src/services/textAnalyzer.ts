@@ -1,10 +1,10 @@
 import {
-  IntentClassifier,
-} from '../intelligence/intentClassifier';
+  IntentLearningService,
+} from '../intelligence/intentLearningService';
 
 import {
-  INTENT_DATASET,
-} from '../intelligence/intentDataset';
+  IntentClassifier,
+} from '../intelligence/intentClassifier';
 
 export type MessageIntent =
   | 'aggressive'
@@ -31,25 +31,84 @@ export interface AnalyzedMessage {
 }
 
 const aggressiveWords = [
-  'matar', 'morre', 'morrer', 'mata', 'destruir', 'acabar',
-  'fude', 'fuder', 'caralho', 'porra', 'merda', 'idiota',
-  'burro', 'estúpido', 'retardado', 'imbecil', 'cu',
-  'desgraça', 'nojento', 'nojo', 'lixo', 'fraquinho',
-  'inútil', 'miserável', 'vergonha', 'patético', 'ridículo',
-  'estúpida', 'estúpidos', 'burros', 'burras', 'merdas',
-  'porras', 'caralhos', 'desgraças', 'lixos', 'inúteis',
-  'miseráveis', 'vergonhas', 'patéticos', 'ridículos',
+  'matar',
+  'morre',
+  'morrer',
+  'mata',
+  'destruir',
+  'acabar',
+  'fude',
+  'fuder',
+  'caralho',
+  'porra',
+  'merda',
+  'idiota',
+  'burro',
+  'estúpido',
+  'retardado',
+  'imbecil',
+  'cu',
+  'desgraça',
+  'nojento',
+  'nojo',
+  'lixo',
+  'fraquinho',
+  'inútil',
+  'miserável',
+  'vergonha',
+  'patético',
+  'ridículo',
+  'estúpida',
+  'estúpidos',
+  'burros',
+  'burras',
+  'merdas',
+  'porras',
+  'caralhos',
+  'desgraças',
+  'lixos',
+  'inúteis',
+  'miseráveis',
+  'vergonhas',
+  'patéticos',
+  'ridículos',
 ] as const;
 
 const complimentWords = [
-  'obrigado', 'obrigada', 'excelente', 'incrível', 'amazing',
-  'melhor', 'ótimo', 'ótima', 'admirável', 'fantástico',
-  'fantástica', 'brilhante', 'genial', 'parabéns',
-  'congratulations', 'love', 'amo', 'adora', 'admirar',
-  'respeito', 'respeitar', 'grato', 'grata', 'agradecido',
-  'agradecida', 'maravilhoso', 'maravilhosa', 'perfeito',
-  'perfeita', 'espetacular', 'formidável', 'excepcional',
-  'extraordinário', 'extraordinária',
+  'obrigado',
+  'obrigada',
+  'excelente',
+  'incrível',
+  'amazing',
+  'melhor',
+  'ótimo',
+  'ótima',
+  'admirável',
+  'fantástico',
+  'fantástica',
+  'brilhante',
+  'genial',
+  'parabéns',
+  'congratulations',
+  'love',
+  'amo',
+  'adora',
+  'admirar',
+  'respeito',
+  'respeitar',
+  'grato',
+  'grata',
+  'agradecido',
+  'agradecida',
+  'maravilhoso',
+  'maravilhosa',
+  'perfeito',
+  'perfeita',
+  'espetacular',
+  'formidável',
+  'excepcional',
+  'extraordinário',
+  'extraordinária',
 ] as const;
 
 const sarcasmIndicators = [
@@ -187,23 +246,38 @@ const farewellPatterns = [
 ] as const;
 
 export class TextAnalyzer {
-  static normalize(content: string): string {
+  static normalize(
+    content: string
+  ): string {
     return content
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(
+        /[\u0300-\u036f]/g,
+        ''
+      )
       .replace(
         /[^\p{L}\p{N}\s!?]/gu,
         ' '
       )
-      .replace(/[!?]+/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(
+        /[!?]+/g,
+        ' '
+      )
+      .replace(
+        /\s+/g,
+        ' '
+      )
       .trim();
   }
 
-  static tokenize(content: string): string[] {
+  static tokenize(
+    content: string
+  ): string[] {
     const normalized =
-      this.normalize(content);
+      this.normalize(
+        content
+      );
 
     return normalized.length > 0
       ? normalized.split(' ')
@@ -215,59 +289,109 @@ export class TextAnalyzer {
     values: readonly string[]
   ): boolean {
     const normalizedContent =
-      this.normalize(content);
+      this.normalize(
+        content
+      );
 
-    return values.some(value => {
-      const normalizedValue =
-        this.normalize(value);
+    return values.some(
+      value => {
+        const normalizedValue =
+          this.normalize(
+            value
+          );
 
-      if (
-        normalizedValue.includes(' ')
-      ) {
-        return normalizedContent.includes(
-          normalizedValue
-        );
+        if (
+          normalizedValue.includes(
+            ' '
+          )
+        ) {
+          return normalizedContent.includes(
+            normalizedValue
+          );
+        }
+
+        return normalizedContent
+          .split(' ')
+          .some(
+            token =>
+              token ===
+              normalizedValue
+          );
       }
-
-      return normalizedContent
-        .split(' ')
-        .some(token => token === normalizedValue);
-    });
-  }
-
-  static isQuestion(content: string): boolean {
-    const normalized =
-      this.normalize(content);
-
-    return (
-      content.includes('?') ||
-      normalized.startsWith('como ') ||
-      normalized.startsWith('por que ') ||
-      normalized.startsWith('porque ') ||
-      normalized.startsWith('quando ') ||
-      normalized.startsWith('onde ') ||
-      normalized.startsWith('quem ') ||
-      normalized.startsWith('qual ') ||
-      normalized.startsWith('quais ') ||
-      normalized.startsWith('quanto ') ||
-      normalized.startsWith('quantos ') ||
-      normalized.startsWith('quantas ')
     );
   }
 
-  static isAggressive(content: string): boolean {
+  static isQuestion(
+    content: string
+  ): boolean {
+    const normalized =
+      this.normalize(
+        content
+      );
+
+    return (
+      content.includes('?') ||
+      normalized.startsWith(
+        'como '
+      ) ||
+      normalized.startsWith(
+        'por que '
+      ) ||
+      normalized.startsWith(
+        'porque '
+      ) ||
+      normalized.startsWith(
+        'quando '
+      ) ||
+      normalized.startsWith(
+        'onde '
+      ) ||
+      normalized.startsWith(
+        'quem '
+      ) ||
+      normalized.startsWith(
+        'qual '
+      ) ||
+      normalized.startsWith(
+        'quais '
+      ) ||
+      normalized.startsWith(
+        'quanto '
+      ) ||
+      normalized.startsWith(
+        'quantos '
+      ) ||
+      normalized.startsWith(
+        'quantas '
+      )
+    );
+  }
+
+  static isAggressive(
+    content: string
+  ): boolean {
     return this.containsAny(
       content,
       aggressiveWords
     );
   }
 
-  static isCompliment(content: string): boolean {
-    if (this.isAggressive(content)) {
+  static isCompliment(
+    content: string
+  ): boolean {
+    if (
+      this.isAggressive(
+        content
+      )
+    ) {
       return false;
     }
 
-    if (this.hasSarcasm(content)) {
+    if (
+      this.hasSarcasm(
+        content
+      )
+    ) {
       return false;
     }
 
@@ -277,7 +401,9 @@ export class TextAnalyzer {
     );
   }
 
-  static hasSarcasm(content: string): boolean {
+  static hasSarcasm(
+    content: string
+  ): boolean {
     return this.containsAny(
       content,
       sarcasmIndicators
@@ -287,16 +413,26 @@ export class TextAnalyzer {
   static detectIntent(
     content: string
   ): MessageIntent {
-    if (this.isAggressive(content)) {
+    if (
+      this.isAggressive(
+        content
+      )
+    ) {
       return 'aggressive';
     }
 
-    if (this.isCompliment(content)) {
+    if (
+      this.isCompliment(
+        content
+      )
+    ) {
       return 'compliment';
     }
 
     const normalized =
-      this.normalize(content);
+      this.normalize(
+        content
+      );
 
     if (
       this.containsAny(
@@ -344,7 +480,9 @@ export class TextAnalyzer {
     }
 
     if (
-      this.isQuestion(content)
+      this.isQuestion(
+        content
+      )
     ) {
       return 'question';
     }
@@ -367,7 +505,13 @@ export class TextAnalyzer {
       return 'farewell';
     }
 
-    this.initializeMachineLearning();
+    IntentLearningService.ensureInitialized();
+
+    if (
+      !IntentClassifier.isTrained()
+    ) {
+      return 'neutral';
+    }
 
     const prediction =
       IntentClassifier.predict(
@@ -375,7 +519,8 @@ export class TextAnalyzer {
       );
 
     if (
-      prediction.confidence >= 0.65
+      prediction.confidence >=
+      0.65
     ) {
       return prediction.intent;
     }
@@ -388,23 +533,34 @@ export class TextAnalyzer {
   ): AnalyzedMessage {
     return {
       original: content,
-      normalized: this.normalize(content),
-      tokens: this.tokenize(content),
-      intent: this.detectIntent(content),
-      isAggressive: this.isAggressive(content),
-      isCompliment: this.isCompliment(content),
-      isQuestion: this.isQuestion(content),
-      hasSarcasm: this.hasSarcasm(content),
+      normalized:
+        this.normalize(
+          content
+        ),
+      tokens:
+        this.tokenize(
+          content
+        ),
+      intent:
+        this.detectIntent(
+          content
+        ),
+      isAggressive:
+        this.isAggressive(
+          content
+        ),
+      isCompliment:
+        this.isCompliment(
+          content
+        ),
+      isQuestion:
+        this.isQuestion(
+          content
+        ),
+      hasSarcasm:
+        this.hasSarcasm(
+          content
+        ),
     };
-  }
-
-  private static initializeMachineLearning(): void {
-    if (
-      !IntentClassifier.isTrained()
-    ) {
-      IntentClassifier.train(
-        INTENT_DATASET
-      );
-    }
   }
 }
