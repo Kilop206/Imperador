@@ -15,17 +15,127 @@ interface MemoryCandidate {
   importance: number;
 }
 
+interface DynamicTopic {
+  name: string;
+  triggers: string[];
+  score: number;
+}
+
 const IGNORED_KEYWORDS = new Set([
   'oi',
   'ola',
   'olá',
   'bom dia',
+  'boa tarde',
   'boa noite',
   'online',
   'obrigado',
   'obrigada',
   'kkkk',
   'tudo bem',
+
+  'matar',
+  'mata',
+  'morre',
+  'morrer',
+  'destruir',
+  'acabar',
+  'caralho',
+  'porra',
+  'merda',
+  'idiota',
+  'burro',
+  'estúpido',
+  'imbecil',
+  'cu',
+  'desgraça',
+  'nojento',
+  'nojo',
+  'lixo',
+  'inútil',
+  'miserável',
+  'patético',
+  'ridículo',
+
+  'festa',
+  'cerveja',
+  'álcool',
+  'bebida',
+  'drink',
+  'comemorar',
+  'celebrar',
+  'alegrar',
+  'felicidade',
+  'diversão',
+  'balada',
+  'bar',
+  'pub',
+  'vinho',
+  'chopp',
+  'toast',
+]);
+
+const GENERIC_CONTEXT_WORDS = new Set([
+  'v',
+  'm',
+  'a',
+  'o',
+  'e',
+  'de',
+  'do',
+  'da',
+  'em',
+  'no',
+  'na',
+  'para',
+  'por',
+  'com',
+  'sem',
+]);
+
+const IMPORTANT_TOPIC_WORDS = new Set([
+  'vida',
+  'morte',
+  'sentido',
+  'existência',
+  'propósito',
+  'destino',
+  'fado',
+  'universo',
+  'cosmos',
+  'eternidade',
+  'tempo',
+  'realidade',
+  'verdade',
+  'consciência',
+  'alma',
+  'espírito',
+
+  'passado',
+  'antigo',
+  'antiga',
+  'lembrar',
+  'lembrança',
+  'saudade',
+  'memória',
+  'memórias',
+  'antigamente',
+  'infância',
+  'juventude',
+  'história',
+  'recordar',
+
+  'guerra',
+  'batalha',
+  'sangue',
+  'sofrimento',
+  'dor',
+  'tristeza',
+  'funeral',
+  'enterro',
+  'cataclismo',
+  'desastre',
+  'tragédia',
 ]);
 
 export class AutoMemoryService {
@@ -61,7 +171,10 @@ export class AutoMemoryService {
       TextAnalyzer.analyze(content);
 
     const topic =
-      this.detectTopic(content);
+      this.detectTopic(
+        content,
+        analysis.intent
+      );
 
     if (!topic) {
       return null;
@@ -85,60 +198,251 @@ export class AutoMemoryService {
   }
 
   private static detectTopic(
-    content: string
+    content: string,
+    intent: MessageIntent
   ): string | null {
     const normalized =
       TextAnalyzer.normalize(content);
 
+    const tokens =
+      normalized.split(' ');
+
     const topics =
       this.getDynamicTopics();
 
-    let bestTopic: string | null = null;
-    let bestScore = 0;
+    const candidates: Array<{
+      topic: DynamicTopic;
+      score: number;
+    }> = [];
 
     for (const topic of topics) {
-      let score = 0;
+      let score =
+        topic.score;
 
       for (const trigger of topic.triggers) {
+        const isPhrase =
+          trigger.includes(' ');
+
+        if (isPhrase) {
+          if (
+            normalized.includes(trigger)
+          ) {
+            score += 4;
+          }
+
+          continue;
+        }
+
         if (
-          normalized.includes(trigger)
+          tokens.includes(trigger)
         ) {
-          score +=
-            trigger.includes(' ')
-              ? 3
-              : 1;
+          score += 5;
         }
       }
 
-      if (score > bestScore) {
-        bestScore = score;
-        bestTopic = topic.name;
+      if (score > topic.score) {
+        candidates.push({
+          topic,
+          score,
+        });
       }
     }
 
-    return bestTopic;
+    if (candidates.length > 0) {
+      candidates.sort(
+        (a, b) =>
+          b.score - a.score
+      );
+
+      return candidates[0]
+        .topic
+        .name;
+    }
+
+    const intentTopic =
+      this.getIntentTopic(
+        intent,
+        tokens
+      );
+
+    if (intentTopic) {
+      return intentTopic;
+    }
+
+    return null;
   }
 
-  private static getDynamicTopics(): Array<{
-    name: string;
-    triggers: string[];
-  }> {
-    const topics = new Map<
-      string,
-      Set<string>
-    >();
+  private static getIntentTopic(
+    intent: MessageIntent,
+    tokens: string[]
+  ): string | null {
+    const fallbackTopics:
+      Partial<Record<
+        MessageIntent,
+        readonly string[]
+      >> = {
+        philosophical: [
+          'vida',
+          'morte',
+          'sentido',
+          'existência',
+          'propósito',
+          'destino',
+          'universo',
+          'realidade',
+          'verdade',
+          'consciência',
+          'alma',
+          'espírito',
+        ],
 
-    const keywords =
-      config.tiberiusResponses.keywords;
+        serious: [
+          'morte',
+          'guerra',
+          'batalha',
+          'sangue',
+          'sofrimento',
+          'dor',
+          'tristeza',
+          'funeral',
+          'tragédia',
+        ],
+
+        nostalgic: [
+          'passado',
+          'antigo',
+          'lembrar',
+          'saudade',
+          'memória',
+          'história',
+        ],
+      };
+
+    const candidates =
+      fallbackTopics[intent];
+
+    if (!candidates) {
+      return null;
+    }
 
     for (
-      const keyword of Object.keys(keywords)
+      const candidate
+      of candidates
     ) {
-      const normalized =
-        TextAnalyzer.normalize(keyword);
+      const normalizedCandidate =
+        TextAnalyzer.normalize(
+          candidate
+        );
 
       if (
-        !normalized ||
+        tokens.includes(
+          normalizedCandidate
+        )
+      ) {
+        return normalizedCandidate;
+      }
+    }
+
+    return null;
+  }
+
+  private static getDynamicTopics():
+    DynamicTopic[] {
+    const topics = new Map<
+      string,
+      DynamicTopic
+    >();
+
+    const addTopic = (
+      name: string,
+      trigger: string,
+      score: number
+    ): void => {
+      const normalizedName =
+        TextAnalyzer.normalize(name);
+
+      const normalizedTrigger =
+        TextAnalyzer.normalize(trigger);
+
+      if (
+        normalizedName.length < 2 ||
+        normalizedTrigger.length < 2
+      ) {
+        return;
+      }
+
+      if (
+        GENERIC_CONTEXT_WORDS.has(
+          normalizedName
+        ) ||
+        GENERIC_CONTEXT_WORDS.has(
+          normalizedTrigger
+        )
+      ) {
+        return;
+      }
+
+      if (
+        IGNORED_KEYWORDS.has(
+          normalizedName
+        ) ||
+        IGNORED_KEYWORDS.has(
+          normalizedTrigger
+        )
+      ) {
+        return;
+      }
+
+      const existing =
+        topics.get(normalizedName);
+
+      if (existing) {
+        if (
+          !existing.triggers.includes(
+            normalizedTrigger
+          )
+        ) {
+          existing.triggers.push(
+            normalizedTrigger
+          );
+        }
+
+        existing.score =
+          Math.max(
+            existing.score,
+            score
+          );
+
+        return;
+      }
+
+      topics.set(
+        normalizedName,
+        {
+          name: normalizedName,
+          triggers: [
+            normalizedTrigger,
+          ],
+          score,
+        }
+      );
+    };
+
+    const keywords =
+      config.tiberiusResponses
+        .keywords;
+
+    for (
+      const keyword
+      of Object.keys(keywords)
+    ) {
+      const normalized =
+        TextAnalyzer.normalize(
+          keyword
+        );
+
+      if (
+        normalized.length < 2 ||
         IGNORED_KEYWORDS.has(
           normalized
         )
@@ -146,62 +450,59 @@ export class AutoMemoryService {
         continue;
       }
 
-      if (!topics.has(normalized)) {
-        topics.set(
-          normalized,
-          new Set<string>()
-        );
-      }
-
-      topics
-        .get(normalized)!
-        .add(normalized);
+      addTopic(
+        normalized,
+        normalized,
+        IMPORTANT_TOPIC_WORDS.has(
+          normalized
+        )
+          ? 18
+          : 10
+      );
     }
 
     const context =
-      config.tiberiusResponses.context;
+      config.tiberiusResponses
+        .context;
 
     for (
       const combination
       of Object.keys(context)
     ) {
       const parts =
-        combination.split('_');
-
-      for (const part of parts) {
-        const normalized =
-          TextAnalyzer.normalize(part);
-
-        if (
-          !normalized ||
-          IGNORED_KEYWORDS.has(
-            normalized
+        combination
+          .split('_')
+          .map(part =>
+            TextAnalyzer.normalize(part)
           )
-        ) {
-          continue;
-        }
-
-        if (!topics.has(normalized)) {
-          topics.set(
-            normalized,
-            new Set<string>()
+          .filter(part =>
+            part.length >= 2 &&
+            !GENERIC_CONTEXT_WORDS.has(
+              part
+            ) &&
+            !IGNORED_KEYWORDS.has(
+              part
+            )
           );
-        }
 
-        topics
-          .get(normalized)!
-          .add(normalized);
+      for (
+        const part
+        of parts
+      ) {
+        addTopic(
+          part,
+          part,
+          IMPORTANT_TOPIC_WORDS.has(
+            part
+          )
+            ? 18
+            : 15
+        );
       }
     }
 
     return Array.from(
-      topics.entries()
-    ).map(
-      ([name, triggers]) => ({
-        name,
-        triggers:
-          Array.from(triggers),
-      })
+      topics.values()
     );
   }
 
@@ -213,7 +514,12 @@ export class AutoMemoryService {
     let importance = 1;
 
     if (
-      intent === 'philosophical' ||
+      intent === 'philosophical'
+    ) {
+      importance += 3;
+    }
+
+    if (
       intent === 'serious'
     ) {
       importance += 2;
@@ -244,7 +550,11 @@ export class AutoMemoryService {
     }
 
     if (
-      this.isImportantTopic(topic)
+      IMPORTANT_TOPIC_WORDS.has(
+        TextAnalyzer.normalize(
+          topic
+        )
+      )
     ) {
       importance += 1;
     }
@@ -252,25 +562,6 @@ export class AutoMemoryService {
     return Math.min(
       importance,
       10
-    );
-  }
-
-  private static isImportantTopic(
-    topic: string
-  ): boolean {
-    const importantTopics = [
-      'roma',
-      'imperio',
-      'tartaro',
-      'ragnar',
-      'bob',
-      'kazuki',
-      'hitoshi',
-      'yeshua',
-    ];
-
-    return importantTopics.includes(
-      topic
     );
   }
 
