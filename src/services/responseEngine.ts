@@ -9,8 +9,12 @@ import {
 import {
   ResponseValidator,
 } from './responseValidator';
+import {
+  MemoryContextService,
+} from './memoryContext';
 
 export type ResponseSource =
+  | 'memory'
   | 'context'
   | 'aggressive'
   | 'compliment'
@@ -27,12 +31,22 @@ export interface ResponseCandidate {
 
 export class ResponseEngine {
   static generateCandidates(
-    content: string
+    content: string,
+    userId?: string
   ): ResponseCandidate[] {
-    const candidates: ResponseCandidate[] = [];
+    const candidates:
+      ResponseCandidate[] = [];
 
     const analysis =
       TextAnalyzer.analyze(content);
+
+    if (userId) {
+      this.addMemoryCandidates(
+        userId,
+        content,
+        candidates
+      );
+    }
 
     const contextResponse =
       ContextAnalyzer.isCombination(
@@ -106,11 +120,13 @@ export class ResponseEngine {
   }
 
   static selectResponse(
-    content: string
+    content: string,
+    userId?: string
   ): string | null {
     const candidates =
       this.generateCandidates(
-        content
+        content,
+        userId
       );
 
     if (candidates.length === 0) {
@@ -148,6 +164,28 @@ export class ResponseEngine {
     ).text;
   }
 
+  private static addMemoryCandidates(
+    userId: string,
+    content: string,
+    candidates: ResponseCandidate[]
+  ): void {
+    const memoryResponse =
+      MemoryContextService.buildMemoryResponse(
+        userId,
+        content
+      );
+
+    if (!memoryResponse) {
+      return;
+    }
+
+    candidates.push({
+      text: memoryResponse,
+      source: 'memory',
+      score: 85,
+    });
+  }
+
   private static addAggressiveCandidates(
     content: string,
     candidates: ResponseCandidate[]
@@ -158,7 +196,8 @@ export class ResponseEngine {
       );
 
     const keywords =
-      config.tiberiusResponses.keywords;
+      config.tiberiusResponses
+        .keywords;
 
     for (
       const [keyword, responses]
@@ -257,32 +296,6 @@ export class ResponseEngine {
         continue;
       }
 
-      const frequency =
-        ContextAnalyzer.trackWordFrequency(
-          keyword
-        );
-
-      const frequencyResponse =
-        this.getFrequencyResponse(
-          keyword,
-          frequency
-        );
-
-      if (
-        frequencyResponse &&
-        ResponseValidator.isResponseAppropriate(
-          frequencyResponse,
-          analysis.isAggressive,
-          analysis.isCompliment
-        )
-      ) {
-        candidates.push({
-          text: frequencyResponse,
-          source: 'keyword',
-          score: 75,
-        });
-      }
-
       const response =
         this.resolveResponse(
           responses,
@@ -298,66 +311,6 @@ export class ResponseEngine {
         });
       }
     }
-  }
-
-  private static getFrequencyResponse(
-    keyword: string,
-    frequency: number
-  ): string | null {
-    const frequencyData =
-      config.tiberiusResponses
-        .frequency;
-
-    const originalKey =
-      Object.keys(frequencyData)
-        .find(
-          key =>
-            TextAnalyzer.normalize(
-              key
-            ) ===
-            TextAnalyzer.normalize(
-              keyword
-            )
-        );
-
-    if (!originalKey) {
-      return null;
-    }
-
-    const options =
-      frequencyData[originalKey];
-
-    let selected: string[] = [];
-    let highestThreshold = 0;
-
-    for (
-      const [threshold, responses]
-      of Object.entries(options)
-    ) {
-      const numericThreshold =
-        Number.parseInt(
-          threshold,
-          10
-        );
-
-      if (
-        frequency >=
-          numericThreshold &&
-        numericThreshold >
-          highestThreshold
-      ) {
-        highestThreshold =
-          numericThreshold;
-
-        selected = responses;
-      }
-    }
-
-    if (selected.length === 0) {
-      return null;
-    }
-
-    return this.randomItem(selected);
   }
 
   private static addIntentCandidates(
@@ -382,31 +335,37 @@ export class ResponseEngine {
         'boa tarde',
         'boa noite',
       ],
+
       farewell: [
         'tchau',
         'adeus',
         'até mais',
         'ate mais',
       ],
+
       humor: [
         'kkkk',
         'hahaha',
         'haha',
         'rsrs',
       ],
+
       serious: [
         'morte',
         'guerra',
       ],
+
       nostalgic: [
         'passado',
         'saudade',
       ],
+
       philosophical: [
         'vida',
         'existência',
         'sentido',
       ],
+
       roman: [
         'roma',
         'romano',
@@ -467,9 +426,7 @@ export class ResponseEngine {
     content: string
   ): ResponseCandidate[] {
     const analysis =
-      TextAnalyzer.analyze(
-        content
-      );
+      TextAnalyzer.analyze(content);
 
     return candidates.filter(
       candidate =>
@@ -482,7 +439,9 @@ export class ResponseEngine {
   }
 
   private static resolveResponse(
-    response: string | string[],
+    response:
+      | string
+      | string[],
     isAggressive: boolean,
     isCompliment: boolean
   ): string | null {
@@ -515,8 +474,7 @@ export class ResponseEngine {
   ): T {
     return items[
       Math.floor(
-        Math.random() *
-          items.length
+        Math.random() * items.length
       )
     ];
   }

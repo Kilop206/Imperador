@@ -5,6 +5,7 @@ import { TriggerManager } from './triggerManager';
 import { ModeManager } from './modeManager';
 import { RarityManager } from './rarityManager';
 import { ResponseEngine } from './responseEngine';
+import { AutoMemoryService } from './autoMemoryService';
 
 const SPECIAL_COMMANDS = new Set([
   '!tiberio_caotico',
@@ -19,6 +20,7 @@ const SPECIAL_COMMANDS = new Set([
   '!tiberio_status',
   '!tiberio_raro',
   '!tiberio_triggers',
+  '!tiberio_memoria',
 ]);
 
 export class ReplyService {
@@ -49,9 +51,12 @@ export class ReplyService {
     }
 
     return (
-      ResponseEngine.generateCandidates(
-        message.content
-      ).length > 0
+      ResponseEngine
+        .generateCandidates(
+          message.content,
+          message.author.id
+        )
+        .length > 0
     );
   }
 
@@ -63,21 +68,38 @@ export class ReplyService {
         .toLowerCase()
         .trim();
 
+    const userId =
+      message.author.id;
+
+    const username =
+      message.author.username;
+
     if (
       SPECIAL_COMMANDS.has(command)
     ) {
       return this.handleCommand(
-        message.content
+        message.content,
+        userId,
+        username
       );
     }
 
-    return ResponseEngine.selectResponse(
+    AutoMemoryService.processMessage(
+      userId,
+      username,
       message.content
+    );
+
+    return ResponseEngine.selectResponse(
+      message.content,
+      userId
     );
   }
 
   static handleCommand(
-    content: string
+    content: string,
+    userId?: string,
+    username?: string
   ): string | null {
     const command =
       content.toLowerCase().trim();
@@ -139,6 +161,22 @@ export class ReplyService {
         TriggerManager.resetTriggers();
 
         return 'Triggers resetados.';
+
+      case '!tiberio_memoria': {
+        if (!userId) {
+          return 'Tibério não conseguiu identificar você.';
+        }
+
+        const memory =
+          AutoMemoryService.getMemorySummary(
+            userId
+          );
+
+        return (
+          memory ||
+          'Os arquivos do Imperador estão vazios.'
+        );
+      }
 
       default:
         return null;

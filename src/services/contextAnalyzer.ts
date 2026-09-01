@@ -73,7 +73,9 @@ export class ContextAnalyzer {
       config.tiberiusResponses.frequency;
 
     const originalKey =
-      Object.keys(frequencyData).find(
+      Object.keys(
+        frequencyData
+      ).find(
         key =>
           TextAnalyzer.normalize(key) ===
           TextAnalyzer.normalize(word)
@@ -92,7 +94,6 @@ export class ContextAnalyzer {
       frequencyData[originalKey];
 
     let appropriateResponses: string[] = [];
-
     let maxThreshold = 0;
 
     for (
@@ -131,6 +132,30 @@ export class ContextAnalyzer {
           appropriateResponses.length
       )
     ];
+  }
+
+  static registerUser(
+    userId: string,
+    username: string
+  ) {
+    return MemoryService.upsertUser(
+      userId,
+      username
+    );
+  }
+
+  static saveConversation(
+    userId: string,
+    topic: string,
+    summary: string,
+    importance = 1
+  ) {
+    return MemoryService.saveConversation(
+      userId,
+      topic,
+      summary,
+      importance
+    );
   }
 
   static isAggressive(
@@ -178,8 +203,7 @@ export class ContextAnalyzer {
   }
 
   static resetAggressiveCount(): void {
-    runtimeState.aggressiveMessageCount =
-      0;
+    runtimeState.aggressiveMessageCount = 0;
   }
 
   static shouldTriggerThreatMode(): boolean {

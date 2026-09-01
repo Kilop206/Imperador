@@ -8,6 +8,47 @@ export interface WordMemory {
   lastSeen: number;
 }
 
+export interface UserMemory {
+  userId: string;
+  username: string;
+  firstSeen: number;
+  lastSeen: number;
+  messageCount: number;
+}
+
+export interface ConversationMemory {
+  id: number;
+  userId: string;
+  topic: string;
+  summary: string;
+  importance: number;
+  createdAt: number;
+  lastSeen: number;
+}
+
+export type MemoryEventType =
+  | 'message'
+  | 'question'
+  | 'compliment'
+  | 'insult'
+  | 'topic'
+  | 'roman'
+  | 'philosophical'
+  | 'serious'
+  | 'nostalgic'
+  | 'humor'
+  | 'mode_change'
+  | 'rare_event';
+
+export interface MemoryEvent {
+  id: number;
+  userId: string;
+  type: MemoryEventType;
+  content: string;
+  importance: number;
+  createdAt: number;
+}
+
 export class MemoryService {
   private static database: DatabaseSync | null = null;
 
@@ -18,36 +59,31 @@ export class MemoryService {
       return;
     }
 
-    let resolvedPath =
-      databasePath;
+    let resolvedPath = databasePath;
 
     if (!resolvedPath) {
-      const dataDirectory =
-        path.join(
-          process.cwd(),
-          'data'
-        );
+      const dataDirectory = path.join(
+        process.cwd(),
+        'data'
+      );
 
       fs.mkdirSync(
         dataDirectory,
         { recursive: true }
       );
 
-      resolvedPath =
-        path.join(
-          dataDirectory,
-          'memory.db'
-        );
+      resolvedPath = path.join(
+        dataDirectory,
+        'memory.db'
+      );
     }
 
-    this.database =
-      new DatabaseSync(
-        resolvedPath
-      );
+    this.database = new DatabaseSync(
+      resolvedPath
+    );
 
     this.database.exec(`
       PRAGMA journal_mode = WAL;
-
       PRAGMA busy_timeout = 5000;
 
       CREATE TABLE IF NOT EXISTS word_memory (
@@ -61,6 +97,54 @@ export class MemoryService {
 
       CREATE INDEX IF NOT EXISTS idx_word_memory_last_seen
       ON word_memory(last_seen);
+
+      CREATE TABLE IF NOT EXISTS user_memory (
+        user_id TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        first_seen INTEGER NOT NULL,
+        last_seen INTEGER NOT NULL,
+        message_count INTEGER NOT NULL DEFAULT 0
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS conversation_memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        topic TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        importance INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        last_seen INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_conversation_user
+      ON conversation_memory(user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_conversation_topic
+      ON conversation_memory(topic);
+
+      CREATE INDEX IF NOT EXISTS idx_conversation_importance
+      ON conversation_memory(importance DESC);
+
+      CREATE TABLE IF NOT EXISTS memory_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        importance INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE INDEX IF NOT EXISTS idx_memory_events_user
+      ON memory_events(user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_memory_events_type
+      ON memory_events(type);
+
+      CREATE INDEX IF NOT EXISTS idx_memory_events_importance
+      ON memory_events(importance DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_memory_events_created
+      ON memory_events(created_at DESC);
     `);
   }
 
@@ -208,10 +292,430 @@ export class MemoryService {
     );
   }
 
+  static upsertUser(
+    userId: string,
+    username: string
+  ): UserMemory {
+    this.ensureInitialized();
+
+    const now = Date.now();
+
+    const statement =
+      this.database!.prepare(`
+        INSERT INTO user_memory (
+          user_id,
+          username,
+          first_seen,
+          last_seen,
+          message_count
+        )
+        VALUES (?, ?, ?, ?, 1)
+        ON CONFLICT(user_id)
+        DO UPDATE SET
+          username = excluded.username,
+          last_seen = excluded.last_seen,
+          message_count = message_count + 1
+      `);
+
+    statement.run(
+      userId,
+      username,
+      now,
+      now
+    );
+
+    return this.getUser(
+      userId
+    )!;
+  }
+
+  static getUser(
+    userId: string
+  ): UserMemory | null {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          user_id AS userId,
+          username,
+          first_seen AS firstSeen,
+          last_seen AS lastSeen,
+          message_count AS messageCount
+        FROM user_memory
+        WHERE user_id = ?
+      `);
+
+    const result =
+      statement.get(
+        userId
+      ) as
+        | UserMemory
+        | undefined;
+
+    return result ?? null;
+  }
+
+  static saveConversation(
+    userId: string,
+    topic: string,
+    summary: string,
+    importance = 1
+  ): ConversationMemory {
+    this.ensureInitialized();
+
+    const normalizedTopic =
+      topic.trim().toLowerCase();
+
+    const normalizedSummary =
+      summary.trim();
+
+    if (
+      !userId ||
+      !normalizedTopic ||
+      !normalizedSummary
+    ) {
+      throw new Error(
+        'userId, topic e summary são obrigatórios.'
+      );
+    }
+
+    const safeImportance = Math.min(
+      10,
+      Math.max(
+        1,
+        Math.floor(importance)
+      )
+    );
+
+    const now = Date.now();
+
+    const existing =
+      this.findConversation(
+        userId,
+        normalizedTopic
+      );
+
+    if (existing) {
+      const statement =
+        this.database!.prepare(`
+          UPDATE conversation_memory
+          SET
+            summary = ?,
+            importance = MAX(importance, ?),
+            last_seen = ?
+          WHERE id = ?
+        `);
+
+      statement.run(
+        normalizedSummary,
+        safeImportance,
+        now,
+        existing.id
+      );
+
+      return this.getConversation(
+        existing.id
+      )!;
+    }
+
+    const statement =
+      this.database!.prepare(`
+        INSERT INTO conversation_memory (
+          user_id,
+          topic,
+          summary,
+          importance,
+          created_at,
+          last_seen
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+
+    const result =
+      statement.run(
+        userId,
+        normalizedTopic,
+        normalizedSummary,
+        safeImportance,
+        now,
+        now
+      );
+
+    return this.getConversation(
+      Number(result.lastInsertRowid)
+    )!;
+  }
+
+  static findConversation(
+    userId: string,
+    topic: string
+  ): ConversationMemory | null {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          topic,
+          summary,
+          importance,
+          created_at AS createdAt,
+          last_seen AS lastSeen
+        FROM conversation_memory
+        WHERE user_id = ?
+          AND topic = ?
+        ORDER BY
+          importance DESC,
+          last_seen DESC
+        LIMIT 1
+      `);
+
+    const result =
+      statement.get(
+        userId,
+        topic.trim().toLowerCase()
+      ) as
+        | ConversationMemory
+        | undefined;
+
+    return result ?? null;
+  }
+
+  static getUserConversations(
+    userId: string,
+    limit = 10
+  ): ConversationMemory[] {
+    this.ensureInitialized();
+
+    const safeLimit = Math.max(
+      1,
+      Math.floor(limit)
+    );
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          topic,
+          summary,
+          importance,
+          created_at AS createdAt,
+          last_seen AS lastSeen
+        FROM conversation_memory
+        WHERE user_id = ?
+        ORDER BY
+          importance DESC,
+          last_seen DESC
+        LIMIT ?
+      `);
+
+    return statement.all(
+      userId,
+      safeLimit
+    ) as unknown as ConversationMemory[];
+  }
+
+  static saveEvent(
+    userId: string,
+    type: MemoryEventType,
+    content: string,
+    importance = 1
+  ): MemoryEvent {
+    this.ensureInitialized();
+
+    const normalizedContent =
+      content.trim();
+
+    if (
+      !userId ||
+      !normalizedContent
+    ) {
+      throw new Error(
+        'userId e content são obrigatórios.'
+      );
+    }
+
+    const safeImportance = Math.min(
+      10,
+      Math.max(
+        1,
+        Math.floor(importance)
+      )
+    );
+
+    const now = Date.now();
+
+    const statement =
+      this.database!.prepare(`
+        INSERT INTO memory_events (
+          user_id,
+          type,
+          content,
+          importance,
+          created_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+      `);
+
+    const result =
+      statement.run(
+        userId,
+        type,
+        normalizedContent,
+        safeImportance,
+        now
+      );
+
+    return this.getEvent(
+      Number(result.lastInsertRowid)
+    )!;
+  }
+
+  static getEvent(
+    id: number
+  ): MemoryEvent | null {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          type,
+          content,
+          importance,
+          created_at AS createdAt
+        FROM memory_events
+        WHERE id = ?
+      `);
+
+    const result =
+      statement.get(id) as
+        | MemoryEvent
+        | undefined;
+
+    return result ?? null;
+  }
+
+  static getUserEvents(
+    userId: string,
+    limit = 20
+  ): MemoryEvent[] {
+    this.ensureInitialized();
+
+    const safeLimit = Math.max(
+      1,
+      Math.floor(limit)
+    );
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          type,
+          content,
+          importance,
+          created_at AS createdAt
+        FROM memory_events
+        WHERE user_id = ?
+        ORDER BY
+          created_at DESC
+        LIMIT ?
+      `);
+
+    return statement.all(
+      userId,
+      safeLimit
+    ) as unknown as MemoryEvent[];
+  }
+
+  static getImportantUserEvents(
+    userId: string,
+    minimumImportance = 5,
+    limit = 10
+  ): MemoryEvent[] {
+    this.ensureInitialized();
+
+    const safeImportance =
+      Math.min(
+        10,
+        Math.max(
+          1,
+          Math.floor(
+            minimumImportance
+          )
+        )
+      );
+
+    const safeLimit = Math.max(
+      1,
+      Math.floor(limit)
+    );
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          type,
+          content,
+          importance,
+          created_at AS createdAt
+        FROM memory_events
+        WHERE user_id = ?
+          AND importance >= ?
+        ORDER BY
+          importance DESC,
+          created_at DESC
+        LIMIT ?
+      `);
+
+    return statement.all(
+      userId,
+      safeImportance,
+      safeLimit
+    ) as unknown as MemoryEvent[];
+  }
+
+  static deleteEvent(
+    id: number
+  ): void {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        DELETE FROM memory_events
+        WHERE id = ?
+      `);
+
+    statement.run(id);
+  }
+
+  static forgetConversation(
+    id: number
+  ): void {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        DELETE FROM conversation_memory
+        WHERE id = ?
+      `);
+
+    statement.run(id);
+  }
+
   static clear(): void {
     this.ensureInitialized();
 
     this.database!.exec(`
+      DELETE FROM memory_events;
+      DELETE FROM conversation_memory;
+      DELETE FROM user_memory;
       DELETE FROM word_memory;
     `);
   }
@@ -223,6 +727,31 @@ export class MemoryService {
 
     this.database.close();
     this.database = null;
+  }
+
+  private static getConversation(
+    id: number
+  ): ConversationMemory | null {
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          topic,
+          summary,
+          importance,
+          created_at AS createdAt,
+          last_seen AS lastSeen
+        FROM conversation_memory
+        WHERE id = ?
+      `);
+
+    const result =
+      statement.get(id) as
+        | ConversationMemory
+        | undefined;
+
+    return result ?? null;
   }
 
   private static ensureInitialized(): void {
