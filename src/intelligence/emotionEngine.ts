@@ -9,6 +9,7 @@ import {
   clamp,
   emotionState,
   modifyEmotion,
+  resetEmotions,
   snapshotEmotions,
 } from '../state/emotionState';
 
@@ -151,6 +152,13 @@ export class EmotionEngine {
    */
   static getState(): EmotionState {
     return snapshotEmotions();
+  }
+
+  /**
+   * Reset emotions to their canonical baseline.
+   */
+  static reset(): void {
+    resetEmotions();
   }
 
   /**

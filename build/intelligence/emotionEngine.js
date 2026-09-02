@@ -107,6 +107,12 @@ class EmotionEngine {
         return (0, emotionState_1.snapshotEmotions)();
     }
     /**
+     * Reset emotions to their canonical baseline.
+     */
+    static reset() {
+        (0, emotionState_1.resetEmotions)();
+    }
+    /**
      * Human-readable mood summary for logging / prompts.
      */
     static describeMood() {

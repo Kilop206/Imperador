@@ -13,6 +13,7 @@ const intentLearningService_1 = require("../intelligence/intentLearningService")
 const semanticMessageActiveLearningService_1 = require("./semanticMessageActiveLearningService");
 const selfEvaluationEngine_1 = require("../intelligence/selfEvaluationEngine");
 const emotionEngine_1 = require("../intelligence/emotionEngine");
+const goalEngine_1 = require("../intelligence/goalEngine");
 const SPECIAL_COMMANDS = new Set([
     '!tiberio_caotico',
     '!tiberio_bebado',
@@ -33,6 +34,7 @@ const SPECIAL_COMMANDS = new Set([
     '!tiberio_semantic_candidatos',
     '!tiberio_semantic_status',
     '!tiberio_qualidade',
+    '!tiberio_objetivos',
 ]);
 const VALID_INTENTS = [
     'aggressive',
@@ -253,6 +255,10 @@ class ReplyService {
             '!tiberio_qualidade') {
             return this.getQualityReport();
         }
+        if (command ===
+            '!tiberio_objetivos') {
+            return this.getGoalsReport();
+        }
         if (SPECIAL_COMMANDS.has(command)) {
             return this.handleCommand(content, userId, username);
         }
@@ -356,6 +362,29 @@ class ReplyService {
                 : String(error)}`);
         }
     }
+    static getGoalsReport() {
+        try {
+            goalEngine_1.GoalEngine.tick();
+            const activeGoals = goalEngine_1.GoalEngine.getActiveGoals();
+            if (activeGoals.length === 0) {
+                return 'Nenhum objetivo autônomo ativo no momento. Todos os parâmetros do Império estão em conformidade.';
+            }
+            const lines = [
+                '=== Objetivos Autônomos de Tibério ===',
+            ];
+            for (const g of activeGoals) {
+                lines.push(`[${g.priority.toUpperCase()}] ${g.title} | Progresso: ${g.progress}% (${g.currentValue}/${g.targetValue})`);
+                lines.push(`  Descrição: ${g.description}`);
+                lines.push(`  Critérios: ${g.criteria.join('; ')}`);
+            }
+            return lines.join('\n');
+        }
+        catch (error) {
+            return (`Falha ao consultar objetivos autônomos: ${error instanceof Error
+                ? error.message
+                : String(error)}`);
+        }
+    }
     static handleCommand(content, userId, _username) {
         const command = content
             .toLowerCase()
@@ -428,11 +457,13 @@ class ReplyService {
                 /*
                  * 2. Integração com Semantic Active Learning:
                  * Avalia a interação do usuário com a resposta emitida.
-                 * Se o par revelar incerteza semântica, novidade ou conflito,
-                 * é enfileirado como candidato semântico para revisão humana posterior.
-                 * NÃO adiciona ao treinamento automaticamente.
                  */
                 semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.processInteraction(trimmedContent, replyText);
+                /*
+                 * 3. Tick de objetivos autônomos:
+                 * Avalia o progresso das metas do Imperador após cada resposta.
+                 */
+                goalEngine_1.GoalEngine.tick();
             }
         }
         catch (error) {

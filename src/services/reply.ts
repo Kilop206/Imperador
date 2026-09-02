@@ -52,6 +52,10 @@ import {
   EmotionEngine,
 } from '../intelligence/emotionEngine';
 
+import {
+  GoalEngine,
+} from '../intelligence/goalEngine';
+
 const SPECIAL_COMMANDS =
   new Set([
     '!tiberio_caotico',
@@ -73,6 +77,7 @@ const SPECIAL_COMMANDS =
     '!tiberio_semantic_candidatos',
     '!tiberio_semantic_status',
     '!tiberio_qualidade',
+    '!tiberio_objetivos',
   ]);
 
 const VALID_INTENTS:
@@ -571,6 +576,13 @@ export class ReplyService {
     }
 
     if (
+      command ===
+      '!tiberio_objetivos'
+    ) {
+      return this.getGoalsReport();
+    }
+
+    if (
       SPECIAL_COMMANDS.has(
         command
       )
@@ -751,6 +763,39 @@ export class ReplyService {
     }
   }
 
+  private static getGoalsReport(): string {
+    try {
+      GoalEngine.tick();
+      const activeGoals = GoalEngine.getActiveGoals();
+
+      if (activeGoals.length === 0) {
+        return 'Nenhum objetivo autônomo ativo no momento. Todos os parâmetros do Império estão em conformidade.';
+      }
+
+      const lines = [
+        '=== Objetivos Autônomos de Tibério ===',
+      ];
+
+      for (const g of activeGoals) {
+        lines.push(
+          `[${g.priority.toUpperCase()}] ${g.title} | Progresso: ${g.progress}% (${g.currentValue}/${g.targetValue})`
+        );
+        lines.push(`  Descrição: ${g.description}`);
+        lines.push(`  Critérios: ${g.criteria.join('; ')}`);
+      }
+
+      return lines.join('\n');
+    } catch (error) {
+      return (
+        `Falha ao consultar objetivos autônomos: ${
+          error instanceof Error
+            ? error.message
+            : String(error)
+        }`
+      );
+    }
+  }
+
   static handleCommand(
     content: string,
     userId?: string,
@@ -894,14 +939,17 @@ export class ReplyService {
         /*
          * 2. Integração com Semantic Active Learning:
          * Avalia a interação do usuário com a resposta emitida.
-         * Se o par revelar incerteza semântica, novidade ou conflito,
-         * é enfileirado como candidato semântico para revisão humana posterior.
-         * NÃO adiciona ao treinamento automaticamente.
          */
         SemanticMessageActiveLearningService.processInteraction(
           trimmedContent,
           replyText,
         );
+
+        /*
+         * 3. Tick de objetivos autônomos:
+         * Avalia o progresso das metas do Imperador após cada resposta.
+         */
+        GoalEngine.tick();
       }
     } catch (error) {
       console.error(
