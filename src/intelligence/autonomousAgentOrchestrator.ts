@@ -552,53 +552,165 @@ export class AutonomousAgentOrchestrator {
       };
     }
 
-    /*
-     * O SafetyPermissionEngine é responsável
-     * por gerar o executionId internamente.
-     *
-     * Não passamos executionId aqui porque
-     * ele não faz parte da interface pública
-     * de execute().
-     */
-    const execution =
-      await this.safety.execute(
-        toolName,
-        step.params,
-        {
-          requestedAt:
-            currentTime,
-          source:
-            'autonomous-agent',
-          metadata: {
-            goalId:
-              goal.id,
-            planId:
-              plan.id,
-            stepId:
-              step.id,
-            actionType:
-              step.actionType,
+    type ToolExecutionResult =
+      Awaited<
+        ReturnType<
+          SafetyPermissionEngine['execute']
+        >
+      >;
+
+    let executionResult:
+      ToolExecutionResult |
+      undefined;
+
+    const toolExecutor =
+      async (): Promise<
+        ToolExecutionResult
+      > => {
+        const result =
+          await this.safety.execute(
+            toolName,
+            step.params,
+            {
+              requestedAt:
+                currentTime,
+              source:
+                'autonomous-agent',
+              metadata: {
+                goalId:
+                  goal.id,
+                planId:
+                  plan.id,
+                stepId:
+                  step.id,
+                actionType:
+                  step.actionType,
+              },
+            },
+          );
+
+        executionResult =
+          result;
+
+        if (
+          !result.success
+        ) {
+          throw new Error(
+            result.error ??
+              `Execução da ferramenta "${toolName}" foi bloqueada.`,
+          );
+        }
+
+        return result;
+      };
+
+    let success =
+      false;
+
+    try {
+      success =
+        await PlanningEngine.executeStep(
+          plan.id,
+          step.id,
+          toolExecutor,
+        );
+    } catch (error) {
+      this.failedCount +=
+        1;
+
+      this.lastError =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
+      this.lastDecision =
+        'failed';
+
+      const observation =
+        this.observations.observeSystem(
+          {
+            summary:
+              `Falha estrutural ao executar ferramenta "${toolName}".`,
+            significance:
+              'high',
+            anomalies: [
+              this.lastError,
+            ],
+            data: {
+              goalId:
+                goal.id,
+              planId:
+                plan.id,
+              stepId:
+                step.id,
+              actionType:
+                step.actionType,
+            },
           },
-        },
+        );
+
+      return {
+        decision:
+          'failed',
+        timestamp:
+          currentTime,
+        goalId:
+          goal.id,
+        planId:
+          plan.id,
+        stepId:
+          step.id,
+        observationId:
+          observation.id,
+        reason:
+          this.lastError,
+      };
+    }
+
+    const execution =
+      executionResult;
+
+    let executionObservation:
+      Observation |
+      null =
+      null;
+
+    if (
+      execution !==
+        undefined
+    ) {
+      executionObservation =
+        this.observations.observeExecution(
+          execution,
+          {
+            data: {
+              goalId:
+                goal.id,
+              planId:
+                plan.id,
+              stepId:
+                step.id,
+            },
+          },
+        );
+    }
+
+    const updatedPlan =
+      PlanningEngine.getPlan(
+        plan.id,
       );
 
-    const observation:
-      Observation =
-      this.observations.observeExecution(
-        execution,
-        {
-          data: {
-            goalId:
-              goal.id,
-            planId:
-              plan.id,
-            stepId:
-              step.id,
-          },
-        },
+    const updatedStep =
+      updatedPlan?.steps.find(
+        candidate =>
+          candidate.id ===
+          step.id,
       );
 
     if (
+      !success &&
+      execution !==
+        undefined &&
       !execution.success
     ) {
       this.blockedCount +=
@@ -619,10 +731,66 @@ export class AutonomousAgentOrchestrator {
         stepId:
           step.id,
         observationId:
-          observation.id,
+          executionObservation?.id,
         reason:
           execution.error ??
           'Execução da ferramenta foi bloqueada.',
+      };
+    }
+
+    if (
+      !success
+    ) {
+      this.failedCount +=
+        1;
+
+      this.lastDecision =
+        'failed';
+
+      return {
+        decision:
+          'failed',
+        timestamp:
+          currentTime,
+        goalId:
+          goal.id,
+        planId:
+          plan.id,
+        stepId:
+          step.id,
+        observationId:
+          executionObservation?.id,
+        reason:
+          updatedStep?.error ??
+          'A ferramenta não foi concluída pelo PlanningEngine.',
+      };
+    }
+
+    if (
+      updatedPlan?.status ===
+      'completed'
+    ) {
+      this.completedPlanCount +=
+        1;
+
+      this.lastDecision =
+        'completed';
+
+      return {
+        decision:
+          'completed',
+        timestamp:
+          currentTime,
+        goalId:
+          goal.id,
+        planId:
+          plan.id,
+        stepId:
+          step.id,
+        observationId:
+          executionObservation?.id,
+        reason:
+          `Plano "${updatedPlan.title}" concluído após execução da ferramenta "${toolName}".`,
       };
     }
 
@@ -641,7 +809,7 @@ export class AutonomousAgentOrchestrator {
       stepId:
         step.id,
       observationId:
-        observation.id,
+        executionObservation?.id,
       reason:
         `Ferramenta "${toolName}" executada com sucesso.`,
     };
