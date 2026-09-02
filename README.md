@@ -4,30 +4,34 @@ Bot privado do Discord escrito em TypeScript, inspirado no personagem Tibério, 
 
 > **Estado atual — 2 de setembro de 2026**
 >
-> O projeto já passou pela construção do núcleo conversacional e avançou para uma arquitetura própria de inteligência, memória semântica, aprendizado incremental, ferramentas autônomas, observação, planejamento, segurança operacional e auditoria. O build e a suíte de testes atuais estão funcionando.
+> O projeto já passou pela construção do núcleo conversacional e avançou para uma arquitetura própria de inteligência, memória semântica, aprendizado incremental, ferramentas autônomas, observação, planejamento, segurança operacional e auditoria.
+>
+> Atualmente, a suíte de testes e o build estão funcionando com sucesso.
+
+---
 
 ## Visão geral
 
 O Imperador começou como um bot de respostas e triggers para Discord. Atualmente, sua arquitetura é dividida em camadas que permitem que o sistema:
 
-- compreenda características básicas das mensagens;
-- mantenha memória persistente;
-- recupere contexto relevante de conversas anteriores;
-- mantenha estado emocional e personalidade;
-- classifique intenções com um modelo próprio;
-- faça recuperação semântica baseada em TF-IDF e embeddings próprios;
-- mantenha memória neural semântica;
-- aprenda incrementalmente a partir de feedback controlado;
-- gere candidatos de aprendizado ativo;
-- avalie e refine modelos sem mistura indevida entre treino, validação e teste;
-- execute ferramentas internas com políticas de risco;
-- observe execuções e eventos do sistema;
-- planeje e execute ações em ciclos autônomos;
-- mantenha limites de frequência e orçamento;
-- possua kill switch e controle administrativo;
-- registre alterações do runtime em um audit trail persistente.
+* compreenda características básicas das mensagens;
+* mantenha memória persistente;
+* recupere contexto relevante de conversas anteriores;
+* mantenha estado emocional e personalidade;
+* classifique intenções com um modelo próprio;
+* faça recuperação semântica baseada em TF-IDF e embeddings próprios;
+* mantenha memória neural semântica;
+* aprenda incrementalmente a partir de feedback controlado;
+* gere candidatos de aprendizado ativo;
+* avalie e refine modelos sem mistura indevida entre treino, validação e teste;
+* execute ferramentas internas com políticas de risco;
+* observe execuções e eventos do sistema;
+* planeje e execute ações em ciclos autônomos;
+* mantenha limites de frequência e orçamento;
+* possua kill switch e controle administrativo;
+* registre alterações do runtime em um audit trail persistente.
 
-A autonomia continua sendo tratada como uma camada controlada. O agente não recebe acesso arbitrário ao sistema operacional ou à internet: suas ações dependem das ferramentas registradas, do Planning Engine e do Safety Permission Engine.
+A autonomia é tratada como uma camada controlada. O agente não recebe acesso arbitrário ao sistema operacional ou à internet: suas ações dependem das ferramentas registradas, do Planning Engine e do Safety Permission Engine.
 
 ---
 
@@ -35,87 +39,87 @@ A autonomia continua sendo tratada como uma camada controlada. O agente não rec
 
 ### Conversação e personalidade
 
-- ✅ Frases espontâneas categorizadas
-- ✅ Respostas por palavra-chave
-- ✅ Respostas por contexto
-- ✅ Respostas dependentes de frequência
-- ✅ Sistema de raridade
-- ✅ Modos especiais de comportamento
-- ✅ Triggers automáticos
-- ✅ Detecção de agressividade
-- ✅ Detecção de sarcasmo
-- ✅ Validação de respostas para reduzir contradições
-- ✅ Sistema de elogios
-- ✅ Controle de modos por comandos
+* ✅ Frases espontâneas categorizadas
+* ✅ Respostas por palavra-chave
+* ✅ Respostas por contexto
+* ✅ Respostas dependentes de frequência
+* ✅ Sistema de raridade
+* ✅ Modos especiais de comportamento
+* ✅ Triggers automáticos
+* ✅ Detecção de agressividade
+* ✅ Detecção de sarcasmo
+* ✅ Validação de respostas para reduzir contradições
+* ✅ Sistema de elogios
+* ✅ Controle de modos por comandos
 
 ### Memória
 
-- ✅ Memória persistente em SQLite
-- ✅ Memória automática de interações
-- ✅ Memória contextual
-- ✅ Tópicos dinâmicos de memória
-- ✅ Memórias influenciando respostas
-- ✅ Eventos e histórico de memória
-- ✅ Recuperação semântica de memórias relevantes
+* ✅ Memória persistente em SQLite
+* ✅ Memória automática de interações
+* ✅ Memória contextual
+* ✅ Tópicos dinâmicos de memória
+* ✅ Memórias influenciando respostas
+* ✅ Eventos e histórico de memória
+* ✅ Recuperação semântica de memórias relevantes
 
 ### IA / ML / DL próprios
 
 O projeto não depende de uma API externa de IA para seu pipeline principal de inteligência.
 
-- ✅ Análise textual
-- ✅ Multinomial Naive Bayes próprio para intenção
-- ✅ Dataset e avaliação de intenção
-- ✅ Aprendizado incremental persistente
-- ✅ Active Learning para candidatos de intenção
-- ✅ Feedback supervisionado para classificação
-- ✅ TF-IDF próprio
-- ✅ Similaridade semântica
-- ✅ Word Embedding Model próprio baseado em Skip-gram / Negative Sampling
-- ✅ Semantic Sentence Model próprio
-- ✅ Dataset de pares semânticos
-- ✅ Split de dados para treinamento, validação e teste
-- ✅ Error analysis
-- ✅ Hard negative mining
-- ✅ Data augmentation
-- ✅ Semantic fine-tuning
-- ✅ Registry de modelos semânticos
-- ✅ Neural Semantic Memory
-- ✅ Hybrid Retrieval
-- ✅ Semantic Context
-- ✅ Model Manager
-- ✅ Persistência dos modelos
-- ✅ Integração do runtime de IA
-- ✅ Feedback semântico
-- ✅ Active Learning semântico
-- ✅ Fine-tuning semântico controlado
-- ✅ SemanticSafeFineTuningService
+* ✅ Análise textual
+* ✅ Multinomial Naive Bayes próprio para intenção
+* ✅ Dataset e avaliação de intenção
+* ✅ Aprendizado incremental persistente
+* ✅ Active Learning para candidatos de intenção
+* ✅ Feedback supervisionado para classificação
+* ✅ TF-IDF próprio
+* ✅ Similaridade semântica
+* ✅ Word Embedding Model próprio baseado em Skip-gram / Negative Sampling
+* ✅ Semantic Sentence Model próprio
+* ✅ Dataset de pares semânticos
+* ✅ Split de dados para treinamento, validação e teste
+* ✅ Error analysis
+* ✅ Hard negative mining
+* ✅ Data augmentation
+* ✅ Semantic fine-tuning
+* ✅ Registry de modelos semânticos
+* ✅ Neural Semantic Memory
+* ✅ Hybrid Retrieval
+* ✅ Semantic Context
+* ✅ Model Manager
+* ✅ Persistência dos modelos
+* ✅ Integração do runtime de IA
+* ✅ Feedback semântico
+* ✅ Active Learning semântico
+* ✅ Fine-tuning semântico controlado
+* ✅ SemanticSafeFineTuningService
 
 ### Runtime autônomo
 
-A arquitetura atual possui um agente autônomo experimental e controlado, formado por componentes independentes:
+A arquitetura possui um agente autônomo experimental e controlado, formado por componentes independentes:
 
-- ✅ `ToolRegistry`
-- ✅ `SafetyPermissionEngine`
-- ✅ `ObservationEngine`
-- ✅ `PlanningEngine`
-- ✅ `AutonomousToolCatalog`
-- ✅ `AutonomousAgentOrchestrator`
-- ✅ `AutonomousRuntimeControlService`
-- ✅ `AutonomousRuntimeAuditService`
-- ✅ `runtime_audit` tool
+* ✅ `ToolRegistry`
+* ✅ `SafetyPermissionEngine`
+* ✅ `ObservationEngine`
+* ✅ `PlanningEngine`
+* ✅ `AutonomousToolCatalog`
+* ✅ `AutonomousAgentOrchestrator`
+* ✅ `AutonomousRuntimeControlService`
+* ✅ `AutonomousRuntimeAuditService`
+* ✅ `runtime_audit` tool
 
-O agente trabalha em ciclos e pode criar ou executar planos de forma limitada. Ferramentas de diagnóstico atuais são somente de leitura e de baixo risco.
+O agente trabalha em ciclos e pode criar ou executar planos de forma limitada. As ferramentas de diagnóstico disponíveis atualmente são somente de leitura e de baixo risco.
 
-Ferramentas autônomas disponíveis no catálogo padrão:
+Ferramentas autônomas padrão:
 
-| Ferramenta | Risco | Finalidade |
-|---|---|---|
-| `system_health` | low | Diagnóstico básico do estado do sistema |
-| `active_goals` | low | Consulta objetivos ativos |
-| `recent_observations` | low | Consulta observações recentes |
-| `active_plans` | low | Consulta planos ativos |
-| `model_status` | low | Consulta estado dos modelos |
-| `runtime_audit` | low | Consulta o histórico de auditoria do runtime |
+| Ferramenta            | Risco | Finalidade                                   |
+| --------------------- | ----- | -------------------------------------------- |
+| `system_health`       | low   | Diagnóstico básico do estado do sistema      |
+| `active_goals`        | low   | Consulta objetivos ativos                    |
+| `recent_observations` | low   | Consulta observações recentes                |
+| `active_plans`        | low   | Consulta planos ativos                       |
+| `model_status`        | low   | Consulta estado dos modelos                  |
+| `runtime_audit`       | low   | Consulta o histórico de auditoria do runtime |
 
 Ferramentas existentes são preservadas quando o catálogo padrão é registrado, permitindo extensibilidade sem sobrescrever registros customizados.
 
@@ -129,21 +133,22 @@ O runtime autônomo foi projetado para falhar de forma conservadora.
 
 O `SafetyPermissionEngine` controla, entre outros aspectos:
 
-- estado de habilitação do runtime;
-- kill switch;
-- nível máximo de risco permitido;
-- exigência de aprovação para níveis de risco elevados;
-- limite de execuções por janela;
-- janela de frequência;
-- orçamento de execução;
-- fontes permitidas e negadas;
-- autorização de ferramentas;
-- auditoria de segurança.
+* estado de habilitação do runtime;
+* kill switch;
+* nível máximo de risco permitido;
+* exigência de aprovação para níveis de risco elevados;
+* limite de execuções por janela;
+* janela de frequência;
+* orçamento de execução;
+* fontes permitidas e negadas;
+* autorização de ferramentas;
+* auditoria de segurança.
 
 ### Kill switch
 
 O kill switch possui prioridade sobre a ativação do agente.
 
+```text
 !autonomia kill
     ↓
 Kill switch ATIVO
@@ -163,82 +168,95 @@ Agente continua desligado
 !autonomia on
     ↓
 Agente ATIVADO
+```
 
 Essa separação é intencional: remover o kill switch não liga automaticamente o agente.
 
-Comandos administrativos de autonomia
+---
 
-Os comandos abaixo exigem a permissão Administrator no Discord.
+## Comandos administrativos de autonomia
 
+Os comandos abaixo exigem a permissão **Administrator** no Discord.
+
+```text
 !autonomia status
 !autonomia on
 !autonomia off
 !autonomia kill
 !autonomia unkill
-!autonomia status
+```
+
+### `!autonomia status`
 
 Exibe informações como:
 
-estado do agente;
-estado do kill switch;
-estado do orquestrador;
-quantidade de ciclos na janela;
-objetivos ativos;
-planos ativos;
-execuções de ferramentas;
-orçamento utilizado;
-quantidade de registros de auditoria de segurança;
-quantidade de registros de auditoria do runtime;
-última decisão do agente.
-!autonomia on
+* estado do agente;
+* estado do kill switch;
+* estado do orquestrador;
+* quantidade de ciclos na janela;
+* objetivos ativos;
+* planos ativos;
+* execuções de ferramentas;
+* orçamento utilizado;
+* quantidade de registros de auditoria de segurança;
+* quantidade de registros de auditoria do runtime;
+* última decisão do agente.
+
+### `!autonomia on`
 
 Habilita explicitamente o runtime autônomo.
 
 O comando não pode contornar um kill switch ativo.
 
-!autonomia off
+### `!autonomia off`
 
 Desabilita o orquestrador sem remover outras configurações de segurança.
 
-!autonomia kill
+### `!autonomia kill`
 
 Ativa o kill switch e desabilita imediatamente o agente.
 
-!autonomia unkill
+### `!autonomia unkill`
 
-Remove o kill switch, mas mantém o agente desligado até um !autonomia on explícito.
+Remove o kill switch, mas mantém o agente desligado até um `!autonomia on` explícito.
 
-Auditoria do runtime
+---
 
-O AutonomousRuntimeAuditService mantém um histórico persistente em:
+## Auditoria do runtime
 
+O `AutonomousRuntimeAuditService` mantém um histórico persistente em:
+
+```text
 data/autonomous-runtime-audit.json
+```
 
 Eventos registrados atualmente:
 
-runtime_started
-runtime_shutdown
-runtime_enabled
-runtime_disabled
-kill_switch_enabled
-kill_switch_disabled
-runtime_reset
+* `runtime_started`
+* `runtime_shutdown`
+* `runtime_enabled`
+* `runtime_disabled`
+* `kill_switch_enabled`
+* `kill_switch_disabled`
+* `runtime_reset`
 
 Cada evento pode armazenar:
 
-identificador único;
-timestamp;
-origem;
-ator responsável;
-detalhes sanitizados.
+* identificador único;
+* timestamp;
+* origem;
+* ator responsável;
+* detalhes sanitizados.
 
-O armazenamento possui limite de entradas e escrita por arquivo temporário exclusivo para reduzir problemas de concorrência e substituir o arquivo de forma segura.
+O armazenamento possui limite de entradas e utiliza arquivo temporário exclusivo durante a persistência para reduzir problemas de concorrência e substituir o arquivo de forma segura.
 
-Consulta pelo agente
+### Consulta pelo agente
 
-A ferramenta runtime_audit permite recuperar os registros recentes e filtrar por tipo, mantendo a consulta somente de leitura e classificada como baixo risco.
+A ferramenta `runtime_audit` permite recuperar os registros recentes e filtrar por tipo, mantendo a consulta somente de leitura e classificada como baixo risco.
 
-Ciclo do agente autônomo
+---
+
+## Ciclo do agente autônomo
 
 O runtime é executado em ciclos de aproximadamente 15 segundos quando habilitado.
 
@@ -246,6 +264,7 @@ O loop pode permanecer ativo mesmo com o agente desligado. Nesse estado, ele ape
 
 Isso permite ligar e desligar a autonomia em runtime sem reiniciar o bot:
 
+```text
 Bot online
    ↓
 Runtime autônomo OFF
@@ -255,15 +274,23 @@ Runtime autônomo OFF
 Runtime autônomo ON
    ↓
 Ciclos periódicos
+```
 
 Ao desligar o agente:
 
+```text
 !autonomia off
    ↓
 Orchestrator OFF
    ↓
 Próximos ciclos ignorados
-Arquitetura de alto nível
+```
+
+---
+
+## Arquitetura de alto nível
+
+```text
 Discord
    │
    ▼
@@ -303,8 +330,14 @@ AutonomousAgentOrchestrator
 AutonomousRuntimeAuditService
    │
    ▼
- data/autonomous-runtime-audit.json
-Estrutura do projeto
+data/autonomous-runtime-audit.json
+```
+
+---
+
+## Estrutura do projeto
+
+```text
 Imperador/
 ├── src/
 │   ├── config/
@@ -351,18 +384,24 @@ Imperador/
 ├── package.json
 ├── tsconfig.json
 └── README.md
-Tecnologias
-Node.js
-TypeScript
-CommonJS
-discord.js 14
-dotenv
-node:sqlite
-node:test
-tsx
+```
+
+---
+
+## Tecnologias
+
+* **Node.js**
+* **TypeScript**
+* **CommonJS**
+* **discord.js 14**
+* **dotenv**
+* **node:sqlite**
+* **node:test**
+* **tsx**
 
 Configuração de compilação atual:
 
+```json
 {
   "target": "ES2020",
   "module": "commonjs",
@@ -370,72 +409,107 @@ Configuração de compilação atual:
   "outDir": "./build",
   "strict": true
 }
-Requisitos
-Node.js compatível com as APIs utilizadas pelo projeto
-npm
-Aplicação e bot criados no Discord Developer Portal
-Token do bot
-IDs dos canais permitidos, conforme a configuração atual do projeto
-Instalação local
+```
+
+---
+
+## Requisitos
+
+* Node.js compatível com as APIs utilizadas pelo projeto
+* npm
+* Aplicação e bot criados no [Discord Developer Portal](https://discord.com/developers/applications)
+* Token do bot
+* IDs dos canais permitidos, conforme a configuração atual do projeto
+
+---
+
+## Instalação local
 
 Clone o projeto:
 
+```bash
 git clone https://github.com/Kilop206/Imperador.git
 cd Imperador
+```
 
 Instale as dependências:
 
+```bash
 npm install
+```
 
 Configure as variáveis de ambiente necessárias para o bot em seu arquivo local de ambiente.
 
 Nunca versione tokens, senhas ou outros segredos.
 
-Desenvolvimento
+---
+
+## Desenvolvimento
 
 Compile o TypeScript:
 
+```bash
 npm run build
+```
 
 Execute a versão compilada:
 
+```bash
 npm start
+```
 
 Execute todos os testes:
 
+```bash
 npm test
-Validação atual
+```
+
+### Validação atual
 
 A suíte de testes foi executada com sucesso durante o desenvolvimento atual e o build TypeScript também foi concluído com sucesso.
 
-Configuração do runtime autônomo
+---
+
+## Configuração do runtime autônomo
 
 O agente começa desligado por padrão.
 
 Para manter esse comportamento seguro em produção:
 
+```env
 AUTONOMOUS_AGENT_ENABLED=false
+```
 
 Para iniciar o agente já habilitado pelo ambiente:
 
+```env
 AUTONOMOUS_AGENT_ENABLED=true
+```
 
-Mesmo quando iniciado habilitado, o runtime continua sujeito ao SafetyPermissionEngine e ao kill switch.
+Mesmo quando iniciado habilitado, o runtime continua sujeito ao `SafetyPermissionEngine` e ao kill switch.
 
 Para uma primeira implantação, recomenda-se manter:
 
+```env
 AUTONOMOUS_AGENT_ENABLED=false
+```
 
 e habilitar manualmente após verificar o ambiente com:
 
+```text
 !autonomia status
 !autonomia on
-Deploy
+```
 
-O projeto está sendo preparado para execução em produção na Discloud.
+---
 
-O package.json utiliza:
+## Deploy
 
+O projeto está sendo preparado para execução em produção na **Discloud**.
+
+O `package.json` utiliza:
+
+```json
 {
   "main": "build/index.js",
   "scripts": {
@@ -444,9 +518,11 @@ O package.json utiliza:
     "test": "tsx --test"
   }
 }
+```
 
 O fluxo de produção esperado é:
 
+```text
 npm test
    ↓
 npm run build
@@ -460,43 +536,49 @@ Bot online com autonomia OFF
 Validação em produção
    ↓
 !autonomia on
+```
 
 Segredos devem ser configurados diretamente no ambiente de hospedagem e nunca incluídos no repositório.
 
-Como funciona o sistema de respostas
+---
+
+## Como funciona o sistema de respostas
 
 A camada conversacional usa múltiplas fontes de informação antes de responder.
 
 Entre elas:
 
-contexto da mensagem;
-agressividade;
-elogios;
-modo atual;
-palavras-chave;
-histórico/frequência;
-memória contextual;
-recuperação semântica;
-personalidade e estado emocional.
+1. contexto da mensagem;
+2. agressividade;
+3. elogios;
+4. modo atual;
+5. palavras-chave;
+6. histórico e frequência;
+7. memória contextual;
+8. recuperação semântica;
+9. personalidade e estado emocional.
 
 O sistema possui mecanismos de validação para evitar respostas incoerentes com o conteúdo recebido.
 
-Modos especiais
+---
+
+## Modos especiais
 
 O projeto possui os seguintes modos especiais de personalidade:
 
-Bêbado
-Ameaça
-Humor
-Sério
-Nostálgico
-Filosófico
-Romano
+* **Bêbado**
+* **Ameaça**
+* **Humor**
+* **Sério**
+* **Nostálgico**
+* **Filosófico**
+* **Romano**
 
 A seleção de modo pode ocorrer por comando ou automaticamente através dos triggers configurados.
 
 Comandos tradicionais do Tibério incluem:
 
+```text
 !tiberio_caotico
 !tiberio_bebado
 !tiberio_normal
@@ -509,26 +591,33 @@ Comandos tradicionais do Tibério incluem:
 !tiberio_status
 !tiberio_raro
 !tiberio_triggers
-Triggers automáticos
+```
+
+---
+
+## Triggers automáticos
 
 O sistema monitora padrões de conversa e pode ativar modos específicos.
 
 Exemplos de categorias monitoradas:
 
-humor e risadas;
-bebida e comemoração;
-temas graves;
-nostalgia e memória;
-questões filosóficas;
-temas relacionados ao Império Romano;
-agressividade.
+* humor e risadas;
+* bebida e comemoração;
+* temas graves;
+* nostalgia e memória;
+* questões filosóficas;
+* temas relacionados ao Império Romano;
+* agressividade.
 
 Os triggers possuem contadores e janelas temporais para impedir que uma única mensagem cause mudanças permanentes de comportamento.
 
-Filosofia de desenvolvimento
+---
+
+## Filosofia de desenvolvimento
 
 O projeto segue uma evolução incremental:
 
+```text
 Bot de respostas
       ↓
 Contexto
@@ -554,102 +643,134 @@ Observação
 Planejamento
       ↓
 Autonomia controlada
+```
 
 A ideia é aumentar a capacidade do agente sem transformar o sistema em uma caixa-preta sem limites operacionais.
 
-Segurança e boas práticas
+---
+
+## Status do projeto
+
+### Núcleo do bot
+
+* ✅ Discord runtime
+* ✅ Respostas automáticas
+* ✅ Modos de personalidade
+* ✅ Triggers
+* ✅ Memória persistente
+* ✅ Estado emocional
+
+### Inteligência
+
+* ✅ Intent classification
+* ✅ Aprendizado incremental
+* ✅ Active Learning
+* ✅ TF-IDF
+* ✅ Embeddings próprios
+* ✅ Sentence semantics
+* ✅ Semantic retrieval
+* ✅ Neural semantic memory
+* ✅ Hybrid retrieval
+* ✅ Semantic context
+* ✅ Safe semantic fine-tuning
+
+### Autonomia
+
+* ✅ Tool Registry
+* ✅ Safety Permission Engine
+* ✅ Observation Engine
+* ✅ Planning Engine
+* ✅ Autonomous Tool Catalog
+* ✅ Autonomous Agent Orchestrator
+* ✅ Runtime Control
+* ✅ Runtime Audit Trail
+* ✅ Runtime Audit Tool
+* ✅ Controle administrativo via Discord
+* ✅ Kill switch
+* ✅ Limites operacionais
+
+### Produção
+
+* ✅ `npm test`
+* ✅ `npm run build`
+* 🚧 Preparação final para deploy na Discloud
+* 🚧 Validação do runtime autônomo em produção
+
+---
+
+## Segurança e boas práticas
 
 ⚠️ Nunca compartilhe ou versione:
 
-token do Discord;
-arquivos .env com segredos;
-chaves privadas;
-credenciais de serviços;
-arquivos de produção contendo dados sensíveis.
+* token do Discord;
+* arquivos `.env` com segredos;
+* chaves privadas;
+* credenciais de serviços;
+* arquivos de produção contendo dados sensíveis.
 
 O runtime autônomo deve permanecer sob observação durante a fase inicial de produção.
 
 Recomenda-se validar primeiro:
 
+```text
 status → autonomia OFF → validação → autonomia ON → observação
-Troubleshooting
-Bot não conecta
+```
+
+---
+
+## Troubleshooting
+
+### Bot não conecta
 
 Verifique:
 
-token do Discord;
-intents habilitadas no Discord Developer Portal;
-permissões do bot no servidor;
-configuração do ambiente de execução.
-Bot conecta mas não responde
+* token do Discord;
+* intents habilitadas no Discord Developer Portal;
+* permissões do bot no servidor;
+* configuração do ambiente de execução.
+
+### Bot conecta mas não responde
 
 Verifique:
 
-canais permitidos;
-permissões de leitura e envio;
-conteúdo das mensagens;
-logs da aplicação.
-Runtime autônomo não executa ciclos
+* canais permitidos;
+* permissões de leitura e envio;
+* conteúdo das mensagens;
+* logs da aplicação.
+
+### Runtime autônomo não executa ciclos
 
 Execute:
 
+```text
 !autonomia status
+```
 
 Confirme:
 
-Agente: ATIVO;
-Kill switch: INATIVO;
-Orquestrador: habilitado.
+* Agente: `ATIVO`;
+* Kill switch: `INATIVO`;
+* Orquestrador: `habilitado`.
 
 Se o kill switch estiver ativo:
 
+```text
 !autonomia unkill
 !autonomia on
-Agente foi desligado por segurança
+```
+
+### Agente foi desligado por segurança
 
 O kill switch deve ser removido explicitamente antes de uma nova ativação:
 
+```text
 !autonomia kill
 !autonomia unkill
 !autonomia on
-Status do projeto
-Núcleo do bot
-✅ Discord runtime
-✅ Respostas automáticas
-✅ Modos de personalidade
-✅ Triggers
-✅ Memória persistente
-✅ Estado emocional
-Inteligência
-✅ Intent classification
-✅ Aprendizado incremental
-✅ Active Learning
-✅ TF-IDF
-✅ Embeddings próprios
-✅ Sentence semantics
-✅ Semantic retrieval
-✅ Neural semantic memory
-✅ Hybrid retrieval
-✅ Semantic context
-✅ Safe semantic fine-tuning
-Autonomia
-✅ Tool Registry
-✅ Safety Permission Engine
-✅ Observation Engine
-✅ Planning Engine
-✅ Autonomous Tool Catalog
-✅ Autonomous Agent Orchestrator
-✅ Runtime Control
-✅ Runtime Audit Trail
-✅ Runtime Audit Tool
-✅ Controle administrativo via Discord
-✅ Kill switch
-✅ Limites operacionais
-Produção
-✅ npm test
-✅ npm run build
-🚧 Preparação final para deploy na Discloud
-🚧 Validação do runtime autônomo em produção
-Licença
+```
+
+---
+
+## Licença
 
 MIT
