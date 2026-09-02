@@ -10,6 +10,7 @@ const autoMemoryService_1 = require("./autoMemoryService");
 const intentCandidateService_1 = require("../intelligence/intentCandidateService");
 const intentFeedbackService_1 = require("../intelligence/intentFeedbackService");
 const intentLearningService_1 = require("../intelligence/intentLearningService");
+const semanticMessageActiveLearningService_1 = require("./semanticMessageActiveLearningService");
 const SPECIAL_COMMANDS = new Set([
     '!tiberio_caotico',
     '!tiberio_bebado',
@@ -27,6 +28,8 @@ const SPECIAL_COMMANDS = new Set([
     '!tiberio_candidatos',
     '!tiberio_rotular',
     '!tiberio_rejeitar',
+    '!tiberio_semantic_candidatos',
+    '!tiberio_semantic_status',
 ]);
 const VALID_INTENTS = [
     'aggressive',
@@ -45,10 +48,10 @@ class ReplyService {
     static getLearningCandidates() {
         const candidates = intentCandidateService_1.IntentCandidateService.getPending(10);
         if (candidates.length === 0) {
-            return ('Não existem candidatos aguardando rotulagem.');
+            return ('Não existem candidatos de intenção aguardando rotulagem.');
         }
         const lines = [
-            '=== Candidatos de aprendizado ===',
+            '=== Candidatos de intenção ===',
         ];
         for (const candidate of candidates) {
             lines.push(`#${candidate.id} | ` +
@@ -59,6 +62,25 @@ class ReplyService {
         lines.push('');
         lines.push('Para rotular: !tiberio_rotular ID intenção');
         lines.push('Para rejeitar: !tiberio_rejeitar ID');
+        return lines.join('\n');
+    }
+    static getSemanticLearningCandidates() {
+        const candidates = semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.getPendingCandidates(10);
+        if (candidates.length === 0) {
+            return ('Não existem candidatos semânticos aguardando rotulagem.');
+        }
+        const lines = [
+            '=== Candidatos Semânticos (Active Learning) ===',
+        ];
+        for (const candidate of candidates) {
+            lines.push(`#${candidate.id} | ` +
+                `"${candidate.first}" <-> "${candidate.second}" | ` +
+                `score: ${(candidate.predictedScore * 100).toFixed(1)}% | ` +
+                `razão: ${candidate.reason}`);
+        }
+        lines.push('');
+        lines.push('Para rotular: !tiberio_semantic_rotular ID 0|1 (1 = similar, 0 = diferente)');
+        lines.push('Para rejeitar: !tiberio_semantic_rejeitar ID');
         return lines.join('\n');
     }
     static handleCandidateLabel(content) {
@@ -101,6 +123,33 @@ class ReplyService {
         return (`Candidato #${id} rotulado como "${intent}". ` +
             `Modelo retreinado com ${IntentLearningServiceSafeCount()} exemplos.`);
     }
+    static handleSemanticCandidateLabel(content) {
+        const prefix = content.toLowerCase().startsWith('!tiberio_semantic_aprovar')
+            ? '!tiberio_semantic_aprovar'
+            : '!tiberio_semantic_rotular';
+        const payload = content
+            .slice(prefix.length)
+            .trim();
+        const parts = payload.split(/\s+/);
+        if (parts.length < 2) {
+            return ('Formato: !tiberio_semantic_rotular ID 0|1');
+        }
+        const id = Number.parseInt(parts[0], 10);
+        const labelVal = Number.parseInt(parts[1], 10);
+        if (!Number.isInteger(id)) {
+            return 'ID inválido.';
+        }
+        if (labelVal !== 0 &&
+            labelVal !== 1) {
+            return 'Rótulo inválido. Use 1 para similar ou 0 para não similar.';
+        }
+        const approved = semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.approveCandidate(id, labelVal);
+        if (!approved) {
+            return `Não foi possível aprovar o candidato semântico #${id} (não encontrado ou já revisado).`;
+        }
+        return (`Candidato semântico #${id} aprovado com rótulo ${labelVal}. ` +
+            'Exemplo adicionado com segurança ao repositório de feedback para o próximo ciclo de treino.');
+    }
     static handleCandidateRejection(content) {
         const payload = content
             .slice('!tiberio_rejeitar'.length)
@@ -113,6 +162,19 @@ class ReplyService {
         return rejected
             ? `Candidato #${id} rejeitado.`
             : `Candidato #${id} não encontrado.`;
+    }
+    static handleSemanticCandidateRejection(content) {
+        const payload = content
+            .slice('!tiberio_semantic_rejeitar'.length)
+            .trim();
+        const id = Number.parseInt(payload, 10);
+        if (!Number.isInteger(id)) {
+            return ('Formato: !tiberio_semantic_rejeitar ID');
+        }
+        const rejected = semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.rejectCandidate(id);
+        return rejected
+            ? `Candidato semântico #${id} rejeitado.`
+            : `Candidato semântico #${id} não encontrado.`;
     }
     static shouldReply(message) {
         if (!config_1.config.allowedChannels.includes(message.channelId)) {
@@ -129,7 +191,12 @@ class ReplyService {
             command ===
                 '!tiberio_aprender' ||
             command ===
-                '!tiberio_aprendizado') {
+                '!tiberio_aprendizado' ||
+            command.startsWith('!tiberio_rotular ') ||
+            command.startsWith('!tiberio_rejeitar ') ||
+            command.startsWith('!tiberio_semantic_rotular ') ||
+            command.startsWith('!tiberio_semantic_aprovar ') ||
+            command.startsWith('!tiberio_semantic_rejeitar ')) {
             return true;
         }
         return (responseEngine_1.ResponseEngine
@@ -163,6 +230,21 @@ class ReplyService {
         }
         if (command.startsWith('!tiberio_rejeitar ')) {
             return this.handleCandidateRejection(content);
+        }
+        if (command ===
+            '!tiberio_semantic_candidatos') {
+            return this.getSemanticLearningCandidates();
+        }
+        if (command.startsWith('!tiberio_semantic_rotular ') ||
+            command.startsWith('!tiberio_semantic_aprovar ')) {
+            return this.handleSemanticCandidateLabel(content);
+        }
+        if (command.startsWith('!tiberio_semantic_rejeitar ')) {
+            return this.handleSemanticCandidateRejection(content);
+        }
+        if (command ===
+            '!tiberio_semantic_status') {
+            return this.getSemanticLearningStatus();
         }
         if (SPECIAL_COMMANDS.has(command)) {
             return this.handleCommand(content, userId, username);
@@ -206,14 +288,31 @@ class ReplyService {
         try {
             intentLearningService_1.IntentLearningService.ensureInitialized();
             return [
-                '=== Aprendizado de Tibério ===',
+                '=== Aprendizado de Tibério (Intenção) ===',
                 `Exemplos base: ${intentLearningService_1.IntentLearningService.getTotalExampleCount() - intentLearningService_1.IntentLearningService.getLearnedExampleCount()}`,
                 `Exemplos aprendidos: ${intentLearningService_1.IntentLearningService.getLearnedExampleCount()}`,
                 `Total no modelo: ${intentLearningService_1.IntentLearningService.getModelTrainingCount()}`,
+                `Candidatos de intenção pendentes: ${intentCandidateService_1.IntentCandidateService.getPendingCount()}`,
             ].join('\n');
         }
         catch (error) {
             return (`Falha ao consultar aprendizado: ${error instanceof Error
+                ? error.message
+                : String(error)}`);
+        }
+    }
+    static getSemanticLearningStatus() {
+        try {
+            const status = semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.getStatus();
+            return [
+                '=== Aprendizado Semântico de Tibério (Active Learning) ===',
+                `Candidatos semânticos pendentes: ${status.pendingCandidateCount}`,
+                `Feedbacks acumulados: ${status.totalFeedbackCount}`,
+                `Módulo inicializado: ${status.isInitialized ? 'Sim' : 'Não'}`,
+            ].join('\n');
+        }
+        catch (error) {
+            return (`Falha ao consultar aprendizado semântico: ${error instanceof Error
                 ? error.message
                 : String(error)}`);
         }
@@ -277,6 +376,17 @@ class ReplyService {
             }
             await message.reply(replyText);
             console.log(`Resposta enviada para mensagem de ${message.author.username}: ${replyText}`);
+            /*
+             * Integração com Semantic Active Learning:
+             * Avalia a interação do usuário com a resposta emitida.
+             * Se o par revelar incerteza semântica, novidade ou conflito,
+             * é enfileirado como candidato semântico para revisão humana posterior.
+             * NÃO adiciona ao treinamento automaticamente.
+             */
+            const trimmedContent = message.content.trim();
+            if (!trimmedContent.startsWith('!')) {
+                semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.processInteraction(trimmedContent, replyText);
+            }
         }
         catch (error) {
             console.error('Erro ao enviar resposta:', error);

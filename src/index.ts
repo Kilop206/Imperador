@@ -56,6 +56,14 @@ import {
   ResponseEngine,
 } from './services/responseEngine';
 
+import {
+  MemoryContextService,
+} from './services/memoryContext';
+
+import {
+  SemanticMessageActiveLearningService,
+} from './services/semanticMessageActiveLearningService';
+
 const EMOTION_DECAY_INTERVAL_MS =
   5 * 60 * 1000;
 
@@ -187,6 +195,28 @@ client.on(
       await ReplyService.reply(
         message,
       );
+    } else {
+      /*
+       * Para mensagens que não geram resposta direta,
+       * verifica se há memória contextual relevante para
+       * alimentar o Semantic Active Learning com pares contextuais.
+       * Não adiciona automaticamente ao treinamento.
+       */
+      const trimmed = message.content.trim();
+      if (!trimmed.startsWith('!')) {
+        const relevantMemory =
+          MemoryContextService.findRelevantMemory(
+            message.author.id,
+            trimmed,
+          );
+
+        if (relevantMemory && relevantMemory.summary) {
+          SemanticMessageActiveLearningService.processInteraction(
+            trimmed,
+            relevantMemory.summary,
+          );
+        }
+      }
     }
   },
 );

@@ -14,6 +14,8 @@ const emotionState_1 = require("./state/emotionState");
 const aiRuntimeService_1 = require("./intelligence/aiRuntimeService");
 const modelManager_1 = require("./intelligence/modelManager");
 const responseEngine_1 = require("./services/responseEngine");
+const memoryContext_1 = require("./services/memoryContext");
+const semanticMessageActiveLearningService_1 = require("./services/semanticMessageActiveLearningService");
 const EMOTION_DECAY_INTERVAL_MS = 5 * 60 * 1000;
 const AI_STATUS_INTERVAL_MS = 30 * 60 * 1000;
 const client = new discord_js_1.Client({
@@ -74,6 +76,21 @@ client.on('messageCreate', async (message) => {
     memoryService_1.MemoryService.saveEmotions(emotionEngine_1.EmotionEngine.getState());
     if (reply_1.ReplyService.shouldReply(message)) {
         await reply_1.ReplyService.reply(message);
+    }
+    else {
+        /*
+         * Para mensagens que não geram resposta direta,
+         * verifica se há memória contextual relevante para
+         * alimentar o Semantic Active Learning com pares contextuais.
+         * Não adiciona automaticamente ao treinamento.
+         */
+        const trimmed = message.content.trim();
+        if (!trimmed.startsWith('!')) {
+            const relevantMemory = memoryContext_1.MemoryContextService.findRelevantMemory(message.author.id, trimmed);
+            if (relevantMemory && relevantMemory.summary) {
+                semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.processInteraction(trimmed, relevantMemory.summary);
+            }
+        }
     }
 });
 client.on('error', error => {
