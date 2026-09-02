@@ -8,99 +8,32 @@ const neuralSemanticMemoryService_1 = require("./neuralSemanticMemoryService");
 const semanticFineTuningService_1 = require("./semanticFineTuningService");
 const semanticContextService_1 = require("./semanticContextService");
 const semanticSentenceDataset_1 = require("./semanticSentenceDataset");
+const modelPersistenceService_1 = require("./modelPersistenceService");
 class ModelManager {
-    /**
-     * Inicializa toda a infraestrutura de inteligência semântica.
-     *
-     * Ordem:
-     * 1. Word embeddings
-     * 2. Modelo de sentença
-     * 3. Similaridade TF-IDF
-     * 4. Memória neural
-     * 5. Registry de versões
-     * 6. Fine-tuning
-     * 7. Contexto semântico
-     */
     static initialize() {
         if (this.initialized &&
             this.services) {
             return this.services;
         }
-        const trainingDocuments = this.buildTrainingDocuments();
-        /*
-         * ─────────────────────────────────────────────────────────────────────
-         * 1. Word Embeddings
-         * ─────────────────────────────────────────────────────────────────────
-         */
-        const wordEmbeddingModel = new wordEmbeddingModel_1.WordEmbeddingModel();
-        wordEmbeddingModel.train(trainingDocuments.map((document) => document.text));
-        /*
-         * ─────────────────────────────────────────────────────────────────────
-         * 2. Modelo semântico de sentença
-         * ─────────────────────────────────────────────────────────────────────
-         */
-        const sentenceModel = new semanticSentenceModel_1.SemanticSentenceModel();
-        sentenceModel.train(wordEmbeddingModel, semanticSentenceDataset_1.SEMANTIC_SENTENCE_DATASET);
-        /*
-         * ─────────────────────────────────────────────────────────────────────
-         * 3. Similaridade TF-IDF
-         * ─────────────────────────────────────────────────────────────────────
-         */
-        const similarityService = new semanticSimilarityService_1.SemanticSimilarityService();
-        similarityService.train(trainingDocuments);
-        /*
-         * ─────────────────────────────────────────────────────────────────────
-         * 4. Memória neural
-         * ─────────────────────────────────────────────────────────────────────
-         */
-        const neuralSemanticMemoryService = new neuralSemanticMemoryService_1.NeuralSemanticMemoryService();
-        neuralSemanticMemoryService.setModels(wordEmbeddingModel, sentenceModel);
-        /*
-         * ─────────────────────────────────────────────────────────────────────
-         * 5. Registry inicial
-         * ─────────────────────────────────────────────────────────────────────
-         */
-        const modelRegistry = new semanticFineTuningService_1.SemanticModelRegistry();
-        modelRegistry.register(sentenceModel.exportModel(), {
-            datasetSize: semanticSentenceDataset_1.SEMANTIC_SENTENCE_DATASET.length,
-            trainingPairs: semanticSentenceDataset_1.SEMANTIC_SENTENCE_DATASET.length,
-            validationScore: 0,
-            testScore: 0,
-        });
-        const initialModel = modelRegistry.getAll()[0];
-        if (!initialModel) {
-            throw new Error('Falha ao registrar o modelo semântico inicial.');
+        const persisted = this.persistence.load();
+        if (persisted) {
+            try {
+                const services = this.restoreFromPersistence(persisted);
+                this.services = services;
+                this.source = 'persisted';
+                this.initialized = true;
+                return services;
+            }
+            catch (error) {
+                console.error('Modelos persistidos incompatíveis ou corrompidos. Treinando novamente:', error);
+            }
         }
-        const activated = modelRegistry.activate(initialModel.version);
-        if (!activated) {
-            throw new Error('Falha ao ativar o modelo semântico inicial.');
-        }
-        /*
-         * ─────────────────────────────────────────────────────────────────────
-         * 6. Fine-tuning
-         * ─────────────────────────────────────────────────────────────────────
-         */
-        const fineTuningService = new semanticFineTuningService_1.SemanticFineTuningService(modelRegistry);
-        /*
-         * ─────────────────────────────────────────────────────────────────────
-         * 7. Contexto semântico
-         * ─────────────────────────────────────────────────────────────────────
-         */
-        const semanticContextService = new semanticContextService_1.SemanticContextService();
-        semanticContextService.setTfidfService(similarityService);
-        semanticContextService.setNeuralService(neuralSemanticMemoryService);
-        semanticContextService.enable();
-        this.services = {
-            wordEmbeddingModel,
-            sentenceModel,
-            similarityService,
-            neuralSemanticMemoryService,
-            modelRegistry,
-            fineTuningService,
-            semanticContextService,
-        };
+        const services = this.trainFromScratch();
+        this.services = services;
+        this.source = 'trained';
         this.initialized = true;
-        return this.services;
+        this.persist();
+        return services;
     }
     static isInitialized() {
         return (this.initialized &&
@@ -140,10 +73,20 @@ class ModelManager {
         return this.getServices()
             .semanticContextService;
     }
+    static getPersistenceService() {
+        return this.persistence;
+    }
+    static save() {
+        if (!this.services) {
+            return;
+        }
+        this.persist();
+    }
     static getStatus() {
         if (!this.services) {
             return {
                 initialized: false,
+                source: 'trained',
                 wordEmbedding: null,
                 sentenceModel: null,
                 similarity: null,
@@ -156,12 +99,17 @@ class ModelManager {
                     memoryCount: 0,
                 },
                 semanticContext: false,
+                persistence: {
+                    available: this.persistence.exists(),
+                    path: this.persistence.getPath(),
+                },
             };
         }
         const { wordEmbeddingModel, sentenceModel, similarityService, neuralSemanticMemoryService, modelRegistry, semanticContextService, } = this.services;
         const active = modelRegistry.getActive();
         return {
             initialized: this.initialized,
+            source: this.source,
             wordEmbedding: {
                 vocabularySize: wordEmbeddingModel
                     .getVocabularySize(),
@@ -199,18 +147,153 @@ class ModelManager {
             },
             semanticContext: semanticContextService
                 .isConfigured(),
+            persistence: {
+                available: this.persistence.exists(),
+                path: this.persistence.getPath(),
+            },
         };
     }
-    static reset() {
+    static reset(deletePersistence = false) {
         this.services = null;
         this.initialized = false;
+        this.source = 'trained';
+        if (deletePersistence) {
+            this.persistence.delete();
+        }
     }
-    /**
-     * Converte o dataset de pares semânticos em documentos independentes
-     * para alimentar o TF-IDF.
-     *
-     * Cada frase recebe um ID determinístico.
-     */
+    static trainFromScratch() {
+        const trainingDocuments = this.buildTrainingDocuments();
+        /*
+         * 1. Word embeddings
+         */
+        const wordEmbeddingModel = new wordEmbeddingModel_1.WordEmbeddingModel();
+        wordEmbeddingModel.train(trainingDocuments.map((document) => document.text));
+        /*
+         * 2. Modelo semântico de sentença
+         */
+        const sentenceModel = new semanticSentenceModel_1.SemanticSentenceModel();
+        sentenceModel.train(wordEmbeddingModel, semanticSentenceDataset_1.SEMANTIC_SENTENCE_DATASET);
+        /*
+         * 3. Similaridade TF-IDF
+         */
+        const similarityService = new semanticSimilarityService_1.SemanticSimilarityService();
+        similarityService.train(trainingDocuments);
+        /*
+         * 4. Memória neural
+         */
+        const neuralSemanticMemoryService = new neuralSemanticMemoryService_1.NeuralSemanticMemoryService();
+        neuralSemanticMemoryService.setModels(wordEmbeddingModel, sentenceModel);
+        /*
+         * 5. Registry
+         */
+        const modelRegistry = new semanticFineTuningService_1.SemanticModelRegistry();
+        const registered = modelRegistry.register(sentenceModel.exportModel(), {
+            datasetSize: semanticSentenceDataset_1.SEMANTIC_SENTENCE_DATASET.length,
+            trainingPairs: semanticSentenceDataset_1.SEMANTIC_SENTENCE_DATASET.length,
+            validationScore: 0,
+            testScore: 0,
+        });
+        const activated = modelRegistry.activate(registered.version);
+        if (!activated) {
+            throw new Error('Falha ao ativar o modelo semântico inicial.');
+        }
+        /*
+         * 6. Fine-tuning
+         */
+        const fineTuningService = new semanticFineTuningService_1.SemanticFineTuningService(modelRegistry);
+        /*
+         * 7. Contexto semântico
+         */
+        const semanticContextService = new semanticContextService_1.SemanticContextService();
+        semanticContextService.setTfidfService(similarityService);
+        semanticContextService.setNeuralService(neuralSemanticMemoryService);
+        semanticContextService.enable();
+        return {
+            wordEmbeddingModel,
+            sentenceModel,
+            similarityService,
+            neuralSemanticMemoryService,
+            modelRegistry,
+            fineTuningService,
+            semanticContextService,
+        };
+    }
+    static restoreFromPersistence(persisted) {
+        /*
+         * 1. Restaurar embeddings
+         */
+        const wordEmbeddingModel = new wordEmbeddingModel_1.WordEmbeddingModel();
+        wordEmbeddingModel.importModel(persisted.wordEmbedding);
+        /*
+         * 2. Restaurar registry
+         */
+        const modelRegistry = new semanticFineTuningService_1.SemanticModelRegistry();
+        modelRegistry.importData(persisted.registry);
+        const active = modelRegistry.getActive();
+        if (!active) {
+            throw new Error('O registry persistido não possui modelo ativo.');
+        }
+        /*
+         * 3. Restaurar modelo semântico ativo
+         *
+         * A versão persistida do registry é a fonte de
+         * verdade do modelo atualmente em produção.
+         */
+        const sentenceModel = modelRegistry.restoreModel(active.version);
+        if (!sentenceModel) {
+            throw new Error('Não foi possível restaurar o modelo semântico ativo.');
+        }
+        /*
+         * 4. Restaurar TF-IDF
+         */
+        const similarityService = new semanticSimilarityService_1.SemanticSimilarityService();
+        similarityService.importModel(persisted.similarity);
+        /*
+         * 5. Restaurar memória neural
+         */
+        const neuralSemanticMemoryService = new neuralSemanticMemoryService_1.NeuralSemanticMemoryService();
+        neuralSemanticMemoryService.setModels(wordEmbeddingModel, sentenceModel);
+        /*
+         * 6. Fine-tuning
+         */
+        const fineTuningService = new semanticFineTuningService_1.SemanticFineTuningService(modelRegistry);
+        /*
+         * 7. Contexto semântico
+         */
+        const semanticContextService = new semanticContextService_1.SemanticContextService();
+        semanticContextService.setTfidfService(similarityService);
+        semanticContextService.setNeuralService(neuralSemanticMemoryService);
+        semanticContextService.enable();
+        return {
+            wordEmbeddingModel,
+            sentenceModel,
+            similarityService,
+            neuralSemanticMemoryService,
+            modelRegistry,
+            fineTuningService,
+            semanticContextService,
+        };
+    }
+    static persist() {
+        if (!this.services) {
+            return;
+        }
+        const { wordEmbeddingModel, sentenceModel, similarityService, modelRegistry, } = this.services;
+        const data = {
+            schemaVersion: this.persistence
+                .getSchemaVersion(),
+            savedAt: Date.now(),
+            wordEmbedding: wordEmbeddingModel
+                .exportModel(),
+            sentenceModel: sentenceModel
+                .exportModel(),
+            similarity: similarityService
+                .exportModel(),
+            registry: modelRegistry
+                .exportData(),
+        };
+        this.persistence.save(data);
+    }
     static buildTrainingDocuments() {
         const documents = [];
         const seen = new Set();
@@ -248,4 +331,6 @@ class ModelManager {
 }
 exports.ModelManager = ModelManager;
 ModelManager.initialized = false;
+ModelManager.source = 'trained';
 ModelManager.services = null;
+ModelManager.persistence = new modelPersistenceService_1.ModelPersistenceService();
