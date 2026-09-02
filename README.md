@@ -1,278 +1,655 @@
-# Imperador - Bot do Discord (Tibério)
+# Imperador — Bot do Discord (Tibério)
 
-Bot do Discord em TypeScript com personalidade imperial que envia mensagens espontâneas e responde a usuários com base em contexto, frequência e múltiplos modos de comportamento.
+Bot privado do Discord escrito em TypeScript, inspirado no personagem Tibério, com personalidade imperial, memória persistente, análise contextual e um runtime próprio de IA/ML com capacidade progressiva de autonomia.
 
-## Funcionalidades Avançadas
+> **Estado atual — 2 de setembro de 2026**
+>
+> O projeto já passou pela construção do núcleo conversacional e avançou para uma arquitetura própria de inteligência, memória semântica, aprendizado incremental, ferramentas autônomas, observação, planejamento, segurança operacional e auditoria. O build e a suíte de testes atuais estão funcionando.
 
-- ✅ **Frases espontâneas** categorizadas (imperial, arrogante)
-- ✅ **Respostas por palavra-chave** com múltiplas opções
-- ✅ **Respostas por contexto** (combinações de palavras)
-- ✅ **Respostas baseadas em frequência** (mudança com o tempo)
-- ✅ **Sistema de raridade** para frases especiais (5% de chance)
-- ✅ **7 Modos especiais**: Bêbado, Ameaça, Humor, Sério, Nostálgico, Filosófico, Romano
-- ✅ **Triggers automáticos** baseados em padrões de conversa
-- ✅ **Detecção automática de agressividade** para trigger de modo
-- ✅ **Validação inteligente de respostas** (evita contradições como elogios em xingamentos)
-- ✅ **Detecção de sarcasmo** para não responder sarcasmo como elogio
-- ✅ **Comandos especiais** para controle de modos
-- ✅ **Sistema de elogios** com respostas dedicadas
-- ✅ **Sistema de permissões de canais** configurável
-- ✅ **TypeScript** para type safety
+## Visão geral
 
-## Pré-requisitos
+O Imperador começou como um bot de respostas e triggers para Discord. Atualmente, sua arquitetura é dividida em camadas que permitem que o sistema:
 
-- Node.js (v16 ou superior)
-- npm ou yarn
-- Token do bot do Discord (obtido em [Discord Developer Portal](https://discord.com/developers/applications))
+- compreenda características básicas das mensagens;
+- mantenha memória persistente;
+- recupere contexto relevante de conversas anteriores;
+- mantenha estado emocional e personalidade;
+- classifique intenções com um modelo próprio;
+- faça recuperação semântica baseada em TF-IDF e embeddings próprios;
+- mantenha memória neural semântica;
+- aprenda incrementalmente a partir de feedback controlado;
+- gere candidatos de aprendizado ativo;
+- avalie e refine modelos sem mistura indevida entre treino, validação e teste;
+- execute ferramentas internas com políticas de risco;
+- observe execuções e eventos do sistema;
+- planeje e execute ações em ciclos autônomos;
+- mantenha limites de frequência e orçamento;
+- possua kill switch e controle administrativo;
+- registre alterações do runtime em um audit trail persistente.
 
-## Instalação
+A autonomia continua sendo tratada como uma camada controlada. O agente não recebe acesso arbitrário ao sistema operacional ou à internet: suas ações dependem das ferramentas registradas, do Planning Engine e do Safety Permission Engine.
 
-1. Clone o repositório:
-```bash
-git clone <seu-repositorio>
-cd Imperador
-```
+---
 
-2. Instale as dependências:
-```bash
-npm install
-```
+## Principais funcionalidades
 
-3. Crie o arquivo `.env` baseado no `.env.example`:
-```bash
-cp .env.example .env
-```
+### Conversação e personalidade
 
-4. Configure o arquivo `.env` com suas informações:
-```env
-DISCORD_TOKEN=seu_token_aqui
-ALLOWED_CHANNELS=channel_id_1,channel_id_2
-MIN_INTERVAL=3600000
-MAX_INTERVAL=7200000
-```
+- ✅ Frases espontâneas categorizadas
+- ✅ Respostas por palavra-chave
+- ✅ Respostas por contexto
+- ✅ Respostas dependentes de frequência
+- ✅ Sistema de raridade
+- ✅ Modos especiais de comportamento
+- ✅ Triggers automáticos
+- ✅ Detecção de agressividade
+- ✅ Detecção de sarcasmo
+- ✅ Validação de respostas para reduzir contradições
+- ✅ Sistema de elogios
+- ✅ Controle de modos por comandos
 
-5. Copie o arquivo de respostas:
-```bash
-cp tiberius_responses.json.example tiberius_responses.json
-```
+### Memória
 
-6. Edite o arquivo `tiberius_responses.json` com as respostas do Tibério (já pré-configurado com a personalidade imperial)
+- ✅ Memória persistente em SQLite
+- ✅ Memória automática de interações
+- ✅ Memória contextual
+- ✅ Tópicos dinâmicos de memória
+- ✅ Memórias influenciando respostas
+- ✅ Eventos e histórico de memória
+- ✅ Recuperação semântica de memórias relevantes
 
-## Como obter os IDs dos canais
+### IA / ML / DL próprios
 
-1. Ative o modo desenvolvedor no Discord (Configurações > Avançado > Modo Desenvolvedor)
-2. Clique com o botão direito no canal desejado
-3. Selecione "Copiar ID"
+O projeto não depende de uma API externa de IA para seu pipeline principal de inteligência.
 
-## Como obter o Token do Bot
+- ✅ Análise textual
+- ✅ Multinomial Naive Bayes próprio para intenção
+- ✅ Dataset e avaliação de intenção
+- ✅ Aprendizado incremental persistente
+- ✅ Active Learning para candidatos de intenção
+- ✅ Feedback supervisionado para classificação
+- ✅ TF-IDF próprio
+- ✅ Similaridade semântica
+- ✅ Word Embedding Model próprio baseado em Skip-gram / Negative Sampling
+- ✅ Semantic Sentence Model próprio
+- ✅ Dataset de pares semânticos
+- ✅ Split de dados para treinamento, validação e teste
+- ✅ Error analysis
+- ✅ Hard negative mining
+- ✅ Data augmentation
+- ✅ Semantic fine-tuning
+- ✅ Registry de modelos semânticos
+- ✅ Neural Semantic Memory
+- ✅ Hybrid Retrieval
+- ✅ Semantic Context
+- ✅ Model Manager
+- ✅ Persistência dos modelos
+- ✅ Integração do runtime de IA
+- ✅ Feedback semântico
+- ✅ Active Learning semântico
+- ✅ Fine-tuning semântico controlado
+- ✅ SemanticSafeFineTuningService
 
-1. Vá para o [Discord Developer Portal](https://discord.com/developers/applications)
-2. Crie uma nova aplicação ou selecione uma existente
-3. Vá para a aba "Bot"
-4. Clique em "Add Bot"
-5. Copie o token do bot
+### Runtime autônomo
 
-## Scripts
+A arquitetura atual possui um agente autônomo experimental e controlado, formado por componentes independentes:
 
-- `npm run dev` - Executa o bot em modo desenvolvimento com hot reload
-- `npm run build` - Compila o TypeScript para JavaScript
-- `npm start` - Executa o bot em produção (precisa ser compilado primeiro)
+- ✅ `ToolRegistry`
+- ✅ `SafetyPermissionEngine`
+- ✅ `ObservationEngine`
+- ✅ `PlanningEngine`
+- ✅ `AutonomousToolCatalog`
+- ✅ `AutonomousAgentOrchestrator`
+- ✅ `AutonomousRuntimeControlService`
+- ✅ `AutonomousRuntimeAuditService`
+- ✅ `runtime_audit` tool
 
-## Configuração
+O agente trabalha em ciclos e pode criar ou executar planos de forma limitada. Ferramentas de diagnóstico atuais são somente de leitura e de baixo risco.
 
-### Variáveis de Ambiente
+Ferramentas autônomas disponíveis no catálogo padrão:
 
-| Variável | Descrição | Padrão |
-|----------|-----------|--------|
-| `DISCORD_TOKEN` | Token do bot do Discord | Obrigatório |
-| `ALLOWED_CHANNELS` | IDs dos canais permitidos (separados por vírgula) | Obrigatório |
-| `MIN_INTERVAL` | Intervalo mínimo entre mensagens em ms | 21600000 (8 horas) |
-| `MAX_INTERVAL` | Intervalo máximo entre mensagens em ms | 43200000 (12 horas) |
+| Ferramenta | Risco | Finalidade |
+|---|---|---|
+| `system_health` | low | Diagnóstico básico do estado do sistema |
+| `active_goals` | low | Consulta objetivos ativos |
+| `recent_observations` | low | Consulta observações recentes |
+| `active_plans` | low | Consulta planos ativos |
+| `model_status` | low | Consulta estado dos modelos |
+| `runtime_audit` | low | Consulta o histórico de auditoria do runtime |
 
-### Sistema de Respostas (tiberius_responses.json)
+Ferramentas existentes são preservadas quando o catálogo padrão é registrado, permitindo extensibilidade sem sobrescrever registros customizados.
 
-Todas as respostas do Tibério são configuradas no arquivo `tiberius_responses.json` com as seguintes categorias:
+---
 
-#### 1. Frases Espontâneas (spontaneous)
-- **imperial**: Frases grandiosas e autoritárias
-- **arrogant**: Frases mais sarcásticas e condescendentes
+## Segurança da autonomia
 
-#### 2. Palavras-chave (keywords)
-Respostas para palavras específicas. Cada palavra pode ter:
-- **Uma resposta única** (string): sempre a mesma resposta
-- **Múltiplas respostas** (array): escolhe aleatoriamente
+O runtime autônomo foi projetado para falhar de forma conservadora.
 
-#### 3. Contexto (context)
-Respostas para **combinações de palavras**. Exemplo: "ragnar" + "morrer" → resposta específica.
+### Safety Permission Engine
 
-#### 4. Frequência (frequency)
-Respostas que **mudam com o tempo**. Exemplo:
-- 1ª menção de "Tártaro": resposta normal
-- 5ª menção: resposta mais séria
-- 10ª menção: resposta final "Não insista."
+O `SafetyPermissionEngine` controla, entre outros aspectos:
 
-#### 5. Raridade (rarity)
-Frases **muito raras** (5% de chance) que criam mistério:
-- "...Eu me lembro de você."
-- "Isso não deveria estar neste registro."
-- "Não diga esse nome aqui."
+- estado de habilitação do runtime;
+- kill switch;
+- nível máximo de risco permitido;
+- exigência de aprovação para níveis de risco elevados;
+- limite de execuções por janela;
+- janela de frequência;
+- orçamento de execução;
+- fontes permitidas e negadas;
+- autorização de ferramentas;
+- auditoria de segurança.
 
-#### 6. Modos Especiais (modes)
-- **drunk**: Modo bêbado/humorístico
-- **threat**: Modo ameaça imperial (ativado automaticamente por agressividade)
-- **humor**: Modo humor (ativado por risadas/piadas)
-- **serious**: Modo sério (ativado por temas graves)
-- **nostalgic**: Modo nostálgico (ativado por memórias/passado)
-- **philosophical**: Modo filosófico (ativado por questões existenciais)
-- **roman**: Modo romano (ativado por temas romanos)
+### Kill switch
 
-#### 7. Elogios (compliments)
-Respostas especiais quando o bot detecta elogios.
+O kill switch possui prioridade sobre a ativação do agente.
 
-### Comandos Especiais
+!autonomia kill
+    ↓
+Kill switch ATIVO
+    ↓
+Agente desabilitado
 
-O bot aceita os seguintes comandos nos canais permitidos:
+!autonomia on
+    ↓
+BLOQUEADO enquanto o kill switch estiver ativo
 
-- `!tiberio_caotico` ou `!tiberio_bebado` - Ativa modo bêbado
-- `!tiberio_normal` - Reseta para modo normal
-- `!tiberio_ameaca` - Ativa modo ameaça imperial
-- `!tiberio_humor` - Ativa modo humor
-- `!tiberio_serio` - Ativa modo sério
-- `!tiberio_nostalgico` - Ativa modo nostálgico
-- `!tiberio_filosofico` - Ativa modo filosófico
-- `!tiberio_romano` - Ativa modo romano
-- `!tiberio_status` - Mostra o modo atual e status dos triggers
-- `!tiberio_raro` - Força uma frase rara
-- `!tiberio_triggers` - Reseta os contadores de triggers
+!autonomia unkill
+    ↓
+Kill switch DESATIVADO
+    ↓
+Agente continua desligado
 
-### Triggers Automáticos
+!autonomia on
+    ↓
+Agente ATIVADO
 
-O bot possui um sistema inteligente que detecta padrões nas conversas e ativa modos automaticamente:
+Essa separação é intencional: remover o kill switch não liga automaticamente o agente.
 
-**🍺 Modo Bêbado** (3 menções em 5 minutos):
-- Palavras: festa, cerveja, álcool, bebida, drink, comemorar, celebrar, alegrar, felicidade, diversão, balada, noite, bar, pub, vinho, chopp, toast
+Comandos administrativos de autonomia
 
-**😄 Modo Humor** (3 menções em 5 minutos):
-- Palavras: kkkk, hahaha, rsrs, piada, engraçado, rir, risada, humor, comédia, zueira, brincadeira, lol, lmao, haha, k
+Os comandos abaixo exigem a permissão Administrator no Discord.
 
-**😔 Modo Sério** (3 menções em 5 minutos):
-- Palavras: morte, morrer, guerra, batalha, sangue, destruição, sofrimento, dor, tristeza, chorei, chorar, lágrimas, funeral, enterro, cataclismo, desastre, tragédia
+!autonomia status
+!autonomia on
+!autonomia off
+!autonomia kill
+!autonomia unkill
+!autonomia status
 
-**🥺 Modo Nostálgico** (3 menções em 5 minutos):
-- Palavras: passado, antigo, antiga, lembrar, lembrança, saudade, memória, memórias, antigamente, antes, infância, juventude, tempos, história, recordar
+Exibe informações como:
 
-**🤔 Modo Filosófico** (3 menções em 5 minutos):
-- Palavras: vida, morte, sentido, existência, propósito, destino, fado, universo, cosmos, eternidade, tempo, realidade, verdade, consciência, alma, espírito
+estado do agente;
+estado do kill switch;
+estado do orquestrador;
+quantidade de ciclos na janela;
+objetivos ativos;
+planos ativos;
+execuções de ferramentas;
+orçamento utilizado;
+quantidade de registros de auditoria de segurança;
+quantidade de registros de auditoria do runtime;
+última decisão do agente.
+!autonomia on
 
-**🏛️ Modo Romano** (3 menções em 5 minutos):
-- Palavras: senado, senador, legião, legionário, romano, romana, cesar, júlio, augusto, império, imperador, coliseu, gladiador, águia, aquila, latim, roma
+Habilita explicitamente o runtime autônomo.
 
-**⚡ Modo Ameaça** (Já existente):
-- Ativado automaticamente quando 3+ mensagens consecutivas contêm palavras agressivas
-- Reset automático após mensagens não agressivas
+O comando não pode contornar um kill switch ativo.
 
-## ⏱️ Duração dos Modos
+!autonomia off
 
-Todos os modos especiais têm duração limitada e resetam automaticamente para o modo normal:
+Desabilita o orquestrador sem remover outras configurações de segurança.
 
-| Modo | Duração |
-|------|---------|
-| **Bêbado** | 10 minutos |
-| **Ameaça** | 5 minutos |
-| **Humor** | 15 minutos |
-| **Sério** | 20 minutos |
-| **Nostálgico** | 25 minutos |
-| **Filosófico** | 30 minutos |
-| **Romano** | 20 minutos |
-| **Normal** | Indefinido (padrão) |
+!autonomia kill
 
-**Notas:**
-- Quando um modo é ativado, o console mostra quanto tempo até expirar
-- Modos podem ser alterados manualmente a qualquer momento com comandos
-- `!tiberio_normal` reseta imediatamente para o modo padrão
+Ativa o kill switch e desabilita imediatamente o agente.
 
-## Estrutura do Projeto
+!autonomia unkill
 
-```
+Remove o kill switch, mas mantém o agente desligado até um !autonomia on explícito.
+
+Auditoria do runtime
+
+O AutonomousRuntimeAuditService mantém um histórico persistente em:
+
+data/autonomous-runtime-audit.json
+
+Eventos registrados atualmente:
+
+runtime_started
+runtime_shutdown
+runtime_enabled
+runtime_disabled
+kill_switch_enabled
+kill_switch_disabled
+runtime_reset
+
+Cada evento pode armazenar:
+
+identificador único;
+timestamp;
+origem;
+ator responsável;
+detalhes sanitizados.
+
+O armazenamento possui limite de entradas e escrita por arquivo temporário exclusivo para reduzir problemas de concorrência e substituir o arquivo de forma segura.
+
+Consulta pelo agente
+
+A ferramenta runtime_audit permite recuperar os registros recentes e filtrar por tipo, mantendo a consulta somente de leitura e classificada como baixo risco.
+
+Ciclo do agente autônomo
+
+O runtime é executado em ciclos de aproximadamente 15 segundos quando habilitado.
+
+O loop pode permanecer ativo mesmo com o agente desligado. Nesse estado, ele apenas verifica a configuração e não executa um ciclo autônomo.
+
+Isso permite ligar e desligar a autonomia em runtime sem reiniciar o bot:
+
+Bot online
+   ↓
+Runtime autônomo OFF
+   ↓
+!autonomia on
+   ↓
+Runtime autônomo ON
+   ↓
+Ciclos periódicos
+
+Ao desligar o agente:
+
+!autonomia off
+   ↓
+Orchestrator OFF
+   ↓
+Próximos ciclos ignorados
+Arquitetura de alto nível
+Discord
+   │
+   ▼
+Message Handler
+   │
+   ├── TriggerManager
+   ├── TextAnalyzer
+   ├── AutoMemoryService
+   ├── EmotionEngine
+   └── ReplyService
+           │
+           ▼
+   Response Engine
+           │
+           ├── Memória contextual
+           ├── Personalidade
+           ├── Recuperação semântica
+           └── Runtime de IA
+
+Runtime autônomo
+   │
+   ▼
+AutonomousAgentOrchestrator
+   │
+   ├── Goal Engine
+   ├── Planning Engine
+   ├── Tool Registry
+   ├── Observation Engine
+   └── Safety Permission Engine
+           │
+           ├── limites de risco
+           ├── frequência
+           ├── orçamento
+           ├── kill switch
+           └── auditoria
+
+AutonomousRuntimeAuditService
+   │
+   ▼
+ data/autonomous-runtime-audit.json
+Estrutura do projeto
 Imperador/
 ├── src/
 │   ├── config/
-│   │   └── config.ts           # Configuração e validação
+│   │   └── config.ts
+│   ├── intelligence/
+│   │   ├── aiRuntimeService.ts
+│   │   ├── emotionEngine.ts
+│   │   ├── modelManager.ts
+│   │   ├── observationEngine.ts
+│   │   ├── planningEngine.ts
+│   │   ├── safetyPermissionEngine.ts
+│   │   ├── toolRegistry.ts
+│   │   ├── autonomousAgentOrchestrator.ts
+│   │   ├── autonomousToolCatalog.ts
+│   │   ├── autonomousRuntimeControlService.ts
+│   │   ├── autonomousRuntimeAuditService.ts
+│   │   ├── autonomousRuntimeAuditTool.ts
+│   │   └── ...
 │   ├── services/
-│   │   ├── scheduler.ts       # Serviço de agendamento de mensagens
-│   │   ├── reply.ts           # Serviço de respostas automáticas
-│   │   ├── contextAnalyzer.ts # Análise de contexto e frequência
-│   │   ├── rarityManager.ts   # Sistema de frases raras
-│   │   ├── modeManager.ts     # Gerenciamento de modos especiais
-│   │   ├── triggerManager.ts  # Sistema de triggers automáticos
-│   │   └── responseValidator.ts # Validação de consistência de respostas
-│   └── index.ts               # Ponto de entrada do bot
-├── tiberius_responses.json    # Todas as respostas do Tibério
-├── .env.example               # Exemplo de configuração
+│   │   ├── scheduler.ts
+│   │   ├── reply.ts
+│   │   ├── triggerManager.ts
+│   │   ├── modeManager.ts
+│   │   ├── autoMemoryService.ts
+│   │   ├── textAnalyzer.ts
+│   │   ├── responseEngine.ts
+│   │   ├── memoryContext.ts
+│   │   ├── semanticMessageActiveLearningService.ts
+│   │   └── ...
+│   ├── state/
+│   │   └── emotionState.ts
+│   └── index.ts
+├── tests/
+│   ├── autonomousAgentOrchestrator.test.ts
+│   ├── autonomousAgentToolExecution.test.ts
+│   ├── autonomousToolCatalog.test.ts
+│   ├── autonomousRuntimeControlService.test.ts
+│   ├── autonomousRuntimeAuditService.test.ts
+│   ├── autonomousRuntimeAuditTool.test.ts
+│   └── ...
+├── data/
+│   └── ...
+├── build/
 ├── package.json
 ├── tsconfig.json
 └── README.md
-```
+Tecnologias
+Node.js
+TypeScript
+CommonJS
+discord.js 14
+dotenv
+node:sqlite
+node:test
+tsx
 
-## Como o Bot Funciona
+Configuração de compilação atual:
 
-1. **Conexão**: O bot se conecta ao Discord usando o token fornecido
-2. **Scheduler**: Um serviço agenda o envio de mensagens espontâneas em intervalos aleatórios
-3. **Seleção de Mensagem**: O bot escolhe entre categorias imperial/arrogant, com chance de frases raras
-4. **Análise de Contexto**: O bot verifica combinações de palavras antes de palavras-chave individuais
-5. **Rastreamento de Frequência**: O bot conta menções de palavras para mudar respostas ao longo do tempo
-6. **Sistema de Triggers Automáticos**: O bot monitora padrões de conversa e ativa modos automaticamente
-7. **Detecção de Agressividade**: O bot monitora linguagem agressiva para ativar modo ameaça
-8. **Validação de Respostas**: O bot filtra respostas inapropriadas para evitar contradições (ex: não responde com elogio a xingamentos)
-9. **Prioridade de Resposta**: Combinações > Agressividade > Elogios > Modos especiais > Palavras-chave > Frases raras
-10. **Respostas**: O bot monitora mensagens nos canais permitidos e responde com base em múltiplos critérios
+{
+  "target": "ES2020",
+  "module": "commonjs",
+  "rootDir": "./src",
+  "outDir": "./build",
+  "strict": true
+}
+Requisitos
+Node.js compatível com as APIs utilizadas pelo projeto
+npm
+Aplicação e bot criados no Discord Developer Portal
+Token do bot
+IDs dos canais permitidos, conforme a configuração atual do projeto
+Instalação local
 
-### Sistema Inteligente de Respostas
+Clone o projeto:
 
-O bot possui um sistema de validação que evita contradições:
+git clone https://github.com/Kilop206/Imperador.git
+cd Imperador
 
-- **Mensagens agressivas**: O bot não responde com elogios ou frases positivas
-- **Mensagens de elogio**: O bot não responde com frases agressivas ou ameaçadoras
-- **Detecção de sarcasmo**: O bot identifica sarcasmo para não responder como elogio
-- **Priorização de contexto**: Mensagens agressivas têm prioridade sobre palavras-chave normais
-- **Filtragem dinâmica**: Respostas são filtradas em tempo real baseadas no contexto da mensagem
+Instale as dependências:
 
-## Desenvolvimento
+npm install
 
-Para desenvolvimento com hot reload:
+Configure as variáveis de ambiente necessárias para o bot em seu arquivo local de ambiente.
 
-```bash
-npm run dev
-```
+Nunca versione tokens, senhas ou outros segredos.
 
-Para compilar e executar em produção:
+Desenvolvimento
 
-```bash
+Compile o TypeScript:
+
 npm run build
+
+Execute a versão compilada:
+
 npm start
-```
 
-## Segurança
+Execute todos os testes:
 
-⚠️ **Importante**: Nunca compartilhe seu arquivo `.env` ou commit ele no controle de versão. O `.env` está incluído no `.gitignore` por padrão.
+npm test
+Validação atual
 
-## Troubleshooting
+A suíte de testes foi executada com sucesso durante o desenvolvimento atual e o build TypeScript também foi concluído com sucesso.
 
-### Bot não conecta
-- Verifique se o token está correto
-- Verifique se o bot tem as permissões necessárias no servidor
-- Verifique se o bot está nos canais especificados
+Configuração do runtime autônomo
 
-### Mensagens não são enviadas
-- Verifique se os IDs dos canais estão corretos
-- Verifique se o bot tem permissão para enviar mensagens nos canais
-- Verifique o console para mensagens de erro
+O agente começa desligado por padrão.
 
-### Respostas não funcionam
-- Verifique se o bot tem permissão para ler mensagens no canal
-- Verifique se as palavras-chave estão configuradas corretamente
-- Verifique se o formato JSON está correto
+Para manter esse comportamento seguro em produção:
 
-## Licença
+AUTONOMOUS_AGENT_ENABLED=false
 
-ISC
+Para iniciar o agente já habilitado pelo ambiente:
+
+AUTONOMOUS_AGENT_ENABLED=true
+
+Mesmo quando iniciado habilitado, o runtime continua sujeito ao SafetyPermissionEngine e ao kill switch.
+
+Para uma primeira implantação, recomenda-se manter:
+
+AUTONOMOUS_AGENT_ENABLED=false
+
+e habilitar manualmente após verificar o ambiente com:
+
+!autonomia status
+!autonomia on
+Deploy
+
+O projeto está sendo preparado para execução em produção na Discloud.
+
+O package.json utiliza:
+
+{
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "test": "tsx --test"
+  }
+}
+
+O fluxo de produção esperado é:
+
+npm test
+   ↓
+npm run build
+   ↓
+Deploy
+   ↓
+Bot online com autonomia OFF
+   ↓
+!autonomia status
+   ↓
+Validação em produção
+   ↓
+!autonomia on
+
+Segredos devem ser configurados diretamente no ambiente de hospedagem e nunca incluídos no repositório.
+
+Como funciona o sistema de respostas
+
+A camada conversacional usa múltiplas fontes de informação antes de responder.
+
+Entre elas:
+
+contexto da mensagem;
+agressividade;
+elogios;
+modo atual;
+palavras-chave;
+histórico/frequência;
+memória contextual;
+recuperação semântica;
+personalidade e estado emocional.
+
+O sistema possui mecanismos de validação para evitar respostas incoerentes com o conteúdo recebido.
+
+Modos especiais
+
+O projeto possui os seguintes modos especiais de personalidade:
+
+Bêbado
+Ameaça
+Humor
+Sério
+Nostálgico
+Filosófico
+Romano
+
+A seleção de modo pode ocorrer por comando ou automaticamente através dos triggers configurados.
+
+Comandos tradicionais do Tibério incluem:
+
+!tiberio_caotico
+!tiberio_bebado
+!tiberio_normal
+!tiberio_ameaca
+!tiberio_humor
+!tiberio_serio
+!tiberio_nostalgico
+!tiberio_filosofico
+!tiberio_romano
+!tiberio_status
+!tiberio_raro
+!tiberio_triggers
+Triggers automáticos
+
+O sistema monitora padrões de conversa e pode ativar modos específicos.
+
+Exemplos de categorias monitoradas:
+
+humor e risadas;
+bebida e comemoração;
+temas graves;
+nostalgia e memória;
+questões filosóficas;
+temas relacionados ao Império Romano;
+agressividade.
+
+Os triggers possuem contadores e janelas temporais para impedir que uma única mensagem cause mudanças permanentes de comportamento.
+
+Filosofia de desenvolvimento
+
+O projeto segue uma evolução incremental:
+
+Bot de respostas
+      ↓
+Contexto
+      ↓
+Memória
+      ↓
+Estado emocional
+      ↓
+Personalidade
+      ↓
+ML de intenção
+      ↓
+Semântica
+      ↓
+Aprendizado incremental
+      ↓
+Memória neural
+      ↓
+Ferramentas
+      ↓
+Observação
+      ↓
+Planejamento
+      ↓
+Autonomia controlada
+
+A ideia é aumentar a capacidade do agente sem transformar o sistema em uma caixa-preta sem limites operacionais.
+
+Segurança e boas práticas
+
+⚠️ Nunca compartilhe ou versione:
+
+token do Discord;
+arquivos .env com segredos;
+chaves privadas;
+credenciais de serviços;
+arquivos de produção contendo dados sensíveis.
+
+O runtime autônomo deve permanecer sob observação durante a fase inicial de produção.
+
+Recomenda-se validar primeiro:
+
+status → autonomia OFF → validação → autonomia ON → observação
+Troubleshooting
+Bot não conecta
+
+Verifique:
+
+token do Discord;
+intents habilitadas no Discord Developer Portal;
+permissões do bot no servidor;
+configuração do ambiente de execução.
+Bot conecta mas não responde
+
+Verifique:
+
+canais permitidos;
+permissões de leitura e envio;
+conteúdo das mensagens;
+logs da aplicação.
+Runtime autônomo não executa ciclos
+
+Execute:
+
+!autonomia status
+
+Confirme:
+
+Agente: ATIVO;
+Kill switch: INATIVO;
+Orquestrador: habilitado.
+
+Se o kill switch estiver ativo:
+
+!autonomia unkill
+!autonomia on
+Agente foi desligado por segurança
+
+O kill switch deve ser removido explicitamente antes de uma nova ativação:
+
+!autonomia kill
+!autonomia unkill
+!autonomia on
+Status do projeto
+Núcleo do bot
+✅ Discord runtime
+✅ Respostas automáticas
+✅ Modos de personalidade
+✅ Triggers
+✅ Memória persistente
+✅ Estado emocional
+Inteligência
+✅ Intent classification
+✅ Aprendizado incremental
+✅ Active Learning
+✅ TF-IDF
+✅ Embeddings próprios
+✅ Sentence semantics
+✅ Semantic retrieval
+✅ Neural semantic memory
+✅ Hybrid retrieval
+✅ Semantic context
+✅ Safe semantic fine-tuning
+Autonomia
+✅ Tool Registry
+✅ Safety Permission Engine
+✅ Observation Engine
+✅ Planning Engine
+✅ Autonomous Tool Catalog
+✅ Autonomous Agent Orchestrator
+✅ Runtime Control
+✅ Runtime Audit Trail
+✅ Runtime Audit Tool
+✅ Controle administrativo via Discord
+✅ Kill switch
+✅ Limites operacionais
+Produção
+✅ npm test
+✅ npm run build
+🚧 Preparação final para deploy na Discloud
+🚧 Validação do runtime autônomo em produção
+Licença
+
+MIT

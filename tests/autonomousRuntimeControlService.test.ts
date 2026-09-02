@@ -269,6 +269,70 @@ test(
 );
 
 test(
+  'não permite religar o agente enquanto o kill switch estiver ativo',
+  () => {
+    const {
+      directory,
+      control,
+      audit,
+      orchestrator,
+      safety,
+    } =
+      createEnvironment();
+
+    try {
+      control.enable(
+        'admin-start',
+      );
+
+      control.enableKillSwitch(
+        'admin-kill',
+      );
+
+      assert.throws(
+        () =>
+          control.enable(
+            'admin-bypass',
+          ),
+        /kill switch estiver ativo/,
+      );
+
+      assert.equal(
+        safety.isKillSwitchEnabled(),
+        true,
+      );
+
+      assert.equal(
+        orchestrator.isEnabled(),
+        false,
+      );
+
+      const entries =
+        audit.getAll();
+
+      assert.equal(
+        entries.length,
+        2,
+      );
+
+      assert.equal(
+        entries[0].type,
+        'runtime_enabled',
+      );
+
+      assert.equal(
+        entries[1].type,
+        'kill_switch_enabled',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
+  },
+);
+
+test(
   'remover kill switch não religa o agente',
   () => {
     const {

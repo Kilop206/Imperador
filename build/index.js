@@ -84,42 +84,54 @@ client.once('ready', () => {
         console.log(`Agente autônomo ${autonomousAgentEnabled
             ? 'habilitado'
             : 'desabilitado'}.`);
-        if (autonomousAgentEnabled) {
-            autonomousAgentInterval =
-                setInterval(() => {
-                    if (!autonomousAgent) {
-                        return;
+        /*
+         * O loop sempre existe.
+         *
+         * Isso é necessário para que:
+         *
+         * !autonomia on
+         *
+         * consiga ativar o agente dinamicamente,
+         * sem reiniciar o processo.
+         */
+        autonomousAgentInterval =
+            setInterval(() => {
+                if (!autonomousAgent ||
+                    !autonomousRuntimeControl) {
+                    return;
+                }
+                if (!autonomousRuntimeControl.isEnabled()) {
+                    return;
+                }
+                void autonomousAgent
+                    .tick()
+                    .then(result => {
+                    if (result.decision ===
+                        'executed' ||
+                        result.decision ===
+                            'blocked' ||
+                        result.decision ===
+                            'failed' ||
+                        result.decision ===
+                            'completed' ||
+                        result.decision ===
+                            'plan_created' ||
+                        result.decision ===
+                            'goal_created') {
+                        console.log('Ciclo autônomo:', result);
                     }
-                    void autonomousAgent
-                        .tick()
-                        .then(result => {
-                        if (result.decision ===
-                            'executed' ||
-                            result.decision ===
-                                'blocked' ||
-                            result.decision ===
-                                'failed' ||
-                            result.decision ===
-                                'completed' ||
-                            result.decision ===
-                                'plan_created' ||
-                            result.decision ===
-                                'goal_created') {
-                            console.log('Ciclo autônomo:', result);
-                        }
-                    })
-                        .catch(error => {
-                        console.error('Erro no ciclo do agente autônomo:', error);
-                    });
-                }, AUTONOMOUS_AGENT_INTERVAL_MS);
-            autonomousAgentStatusInterval =
-                setInterval(() => {
-                    if (!autonomousAgent) {
-                        return;
-                    }
-                    console.log('Estado do agente autônomo:', autonomousAgent.getStatus());
-                }, AUTONOMOUS_AGENT_STATUS_INTERVAL_MS);
-        }
+                })
+                    .catch(error => {
+                    console.error('Erro no ciclo do agente autônomo:', error);
+                });
+            }, AUTONOMOUS_AGENT_INTERVAL_MS);
+        autonomousAgentStatusInterval =
+            setInterval(() => {
+                if (!autonomousAgent) {
+                    return;
+                }
+                console.log('Estado do agente autônomo:', autonomousAgent.getStatus());
+            }, AUTONOMOUS_AGENT_STATUS_INTERVAL_MS);
     }
     catch (error) {
         autonomousAgent =
@@ -173,62 +185,71 @@ client.on('messageCreate', async (message) => {
             ?.toLowerCase() ??
             'status';
         const actor = message.author.id;
-        switch (command) {
-            case 'status': {
-                const status = autonomousRuntimeControl.getStatus();
-                await message.reply([
-                    '**Estado do agente autônomo**',
-                    `Agente: ${status.enabled
-                        ? 'ATIVO'
-                        : 'INATIVO'}`,
-                    `Kill switch: ${status.killSwitchEnabled
-                        ? 'ATIVO'
-                        : 'INATIVO'}`,
-                    `Orquestrador: ${status.orchestrator.enabled
-                        ? 'habilitado'
-                        : 'desabilitado'}`,
-                    `Ciclos na janela: ${status.orchestrator.cycleCount}`,
-                    `Objetivos ativos: ${status.orchestrator.activeGoalCount}`,
-                    `Planos ativos: ${status.orchestrator.activePlanCount}`,
-                    `Execuções de ferramentas na janela: ${status.safety.executionsInWindow}`,
-                    `Orçamento utilizado: ${status.safety.budgetUsedInWindow}`,
-                    `Auditoria de segurança: ${status.safety.auditEntries} registros`,
-                    `Auditoria de runtime: ${status.auditEntries} registros`,
-                    `Última decisão: ${status.orchestrator.lastDecision}`,
-                ].join('\n'));
-                return;
+        try {
+            switch (command) {
+                case 'status': {
+                    const status = autonomousRuntimeControl.getStatus();
+                    await message.reply([
+                        '**Estado do agente autônomo**',
+                        `Agente: ${status.enabled
+                            ? 'ATIVO'
+                            : 'INATIVO'}`,
+                        `Kill switch: ${status.killSwitchEnabled
+                            ? 'ATIVO'
+                            : 'INATIVO'}`,
+                        `Orquestrador: ${status.orchestrator.enabled
+                            ? 'habilitado'
+                            : 'desabilitado'}`,
+                        `Ciclos na janela: ${status.orchestrator.cycleCount}`,
+                        `Objetivos ativos: ${status.orchestrator.activeGoalCount}`,
+                        `Planos ativos: ${status.orchestrator.activePlanCount}`,
+                        `Execuções de ferramentas na janela: ${status.safety.executionsInWindow}`,
+                        `Orçamento utilizado: ${status.safety.budgetUsedInWindow}`,
+                        `Auditoria de segurança: ${status.safety.auditEntries} registros`,
+                        `Auditoria de runtime: ${status.auditEntries} registros`,
+                        `Última decisão: ${status.orchestrator.lastDecision}`,
+                    ].join('\n'));
+                    return;
+                }
+                case 'on': {
+                    autonomousRuntimeControl.enable(actor);
+                    await message.reply('Agente autônomo habilitado.');
+                    return;
+                }
+                case 'off': {
+                    autonomousRuntimeControl.disable(actor);
+                    await message.reply('Agente autônomo desabilitado.');
+                    return;
+                }
+                case 'kill': {
+                    autonomousRuntimeControl.enableKillSwitch(actor);
+                    await message.reply('Kill switch ativado. O agente autônomo foi imediatamente desabilitado.');
+                    return;
+                }
+                case 'unkill': {
+                    autonomousRuntimeControl.disableKillSwitch(actor);
+                    await message.reply('Kill switch desativado. O agente permanece desligado até ser habilitado explicitamente.');
+                    return;
+                }
+                default: {
+                    await message.reply([
+                        '**Comandos de autonomia**',
+                        '`!autonomia status`',
+                        '`!autonomia on`',
+                        '`!autonomia off`',
+                        '`!autonomia kill`',
+                        '`!autonomia unkill`',
+                    ].join('\n'));
+                    return;
+                }
             }
-            case 'on': {
-                autonomousRuntimeControl.enable(actor);
-                await message.reply('Agente autônomo habilitado.');
-                return;
-            }
-            case 'off': {
-                autonomousRuntimeControl.disable(actor);
-                await message.reply('Agente autônomo desabilitado.');
-                return;
-            }
-            case 'kill': {
-                autonomousRuntimeControl.enableKillSwitch(actor);
-                await message.reply('Kill switch ativado. O agente autônomo foi imediatamente desabilitado.');
-                return;
-            }
-            case 'unkill': {
-                autonomousRuntimeControl.disableKillSwitch(actor);
-                await message.reply('Kill switch desativado. O agente permanece desligado até ser habilitado explicitamente.');
-                return;
-            }
-            default: {
-                await message.reply([
-                    '**Comandos de autonomia**',
-                    '`!autonomia status`',
-                    '`!autonomia on`',
-                    '`!autonomia off`',
-                    '`!autonomia kill`',
-                    '`!autonomia unkill`',
-                ].join('\n'));
-                return;
-            }
+        }
+        catch (error) {
+            console.error('Erro ao executar comando de autonomia:', error);
+            await message.reply(`Não foi possível executar o comando de autonomia: ${error instanceof Error
+                ? error.message
+                : String(error)}`);
+            return;
         }
     }
     triggerManager_1.TriggerManager.checkTriggers(message.content);
@@ -269,8 +290,13 @@ client.on('error', error => {
 const shutdown = (signal) => {
     console.log(`Recebido ${signal}, desligando bot...`);
     if (autonomousRuntimeControl) {
-        autonomousRuntimeControl.markRuntimeShutdown();
-        autonomousRuntimeControl.disable('system');
+        try {
+            autonomousRuntimeControl.markRuntimeShutdown();
+            autonomousRuntimeControl.disable('system');
+        }
+        catch (error) {
+            console.error('Erro ao registrar encerramento do runtime autônomo:', error);
+        }
     }
     if (emotionDecayInterval) {
         clearInterval(emotionDecayInterval);

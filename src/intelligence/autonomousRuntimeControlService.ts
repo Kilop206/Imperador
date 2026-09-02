@@ -78,9 +78,15 @@ export class AutonomousRuntimeControlService {
   public enable(
     actor?: string,
   ): void {
-    this.safety.enable();
+    if (
+      this.safety.isKillSwitchEnabled()
+    ) {
+      throw new Error(
+        'Não é possível habilitar o agente enquanto o kill switch estiver ativo. Desative o kill switch explicitamente antes de habilitar o runtime.',
+      );
+    }
 
-    this.safety.disableKillSwitch();
+    this.safety.enable();
 
     this.orchestrator.setEnabled(
       true,
