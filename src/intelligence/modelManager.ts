@@ -18,6 +18,8 @@ import {
 import {
   SemanticModelRegistry,
   SemanticFineTuningService,
+  type SemanticFineTuningInput,
+  type SemanticFineTuningResult,
 } from './semanticFineTuningService';
 
 import {
@@ -206,6 +208,77 @@ export class ModelManager {
     return this.persistence;
   }
 
+  /**
+   * Treina um novo modelo candidato usando o serviço de fine-tuning.
+   *
+   * Se o candidato for ativado pelo FineTuningService, o ModelManager
+   * sincroniza imediatamente o modelo ativo e persiste o novo estado.
+   */
+  public static fineTune(
+    input: SemanticFineTuningInput,
+  ): SemanticFineTuningResult {
+    const services =
+      this.getServices();
+
+    const result =
+      services.fineTuningService.fineTune(
+        services.wordEmbeddingModel,
+        input,
+      );
+
+    if (result.activated) {
+      this.synchronizeActiveModel();
+      this.persist();
+    }
+
+    return result;
+  }
+
+  /**
+   * Ativa manualmente uma versão registrada.
+   *
+   * A ativação atualiza:
+   * - SemanticModelRegistry
+   * - SemanticSentenceModel usado em runtime
+   * - NeuralSemanticMemoryService
+   * - persistência
+   */
+  public static activateVersion(
+    version: number,
+  ): boolean {
+    const services =
+      this.getServices();
+
+    const activated =
+      services.modelRegistry.activate(
+        version,
+      );
+
+    if (!activated) {
+      return false;
+    }
+
+    this.synchronizeActiveModel();
+    this.persist();
+
+    return true;
+  }
+
+  /**
+   * Retorna a versão atualmente ativa.
+   */
+  public static getActiveVersion():
+    number | null {
+    const active =
+      this.getModelRegistry()
+        .getActive();
+
+    return active?.version ?? null;
+  }
+
+  /**
+   * Persiste explicitamente o estado atual dos modelos.
+   */
   public static save(): void {
     if (!this.services) {
       return;
@@ -353,6 +426,51 @@ export class ModelManager {
     if (deletePersistence) {
       this.persistence.delete();
     }
+  }
+
+  /**
+   * Sincroniza a instância de runtime com a versão ativa do registry.
+   *
+   * Importante:
+   * O registry é a fonte de verdade sobre qual modelo está ativo.
+   */
+  private static synchronizeActiveModel(): void {
+    const services =
+      this.getServices();
+
+    const active =
+      services.modelRegistry.getActive();
+
+    if (!active) {
+      throw new Error(
+        'Não existe versão ativa no registry.',
+      );
+    }
+
+    const restoredModel =
+      services.modelRegistry.restoreModel(
+        active.version,
+      );
+
+    if (!restoredModel) {
+      throw new Error(
+        `Não foi possível restaurar a versão ativa ${active.version}.`,
+      );
+    }
+
+    services.sentenceModel =
+      restoredModel;
+
+    services.neuralSemanticMemoryService
+      .setModels(
+        services.wordEmbeddingModel,
+        restoredModel,
+      );
+
+    /*
+     * O SemanticContextService mantém uma referência para o mesmo
+     * NeuralSemanticMemoryService, portanto não precisamos reconstruí-lo.
+     */
   }
 
   private static trainFromScratch():
@@ -507,9 +625,6 @@ export class ModelManager {
 
     /*
      * 3. Restaurar modelo semântico ativo
-     *
-     * A versão persistida do registry é a fonte de
-     * verdade do modelo atualmente em produção.
      */
     const sentenceModel =
       modelRegistry.restoreModel(
