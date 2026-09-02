@@ -232,6 +232,10 @@ export class MemoryService {
     const normalizedWord =
       word.trim().toLowerCase();
 
+    if (!normalizedWord) {
+      return null;
+    }
+
     const statement =
       this.database!.prepare(`
         SELECT
@@ -365,6 +369,25 @@ export class MemoryService {
     return result ?? null;
   }
 
+  static getAllUsers(limit = 100): UserMemory[] {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          user_id AS userId,
+          username,
+          first_seen AS firstSeen,
+          last_seen AS lastSeen,
+          message_count AS messageCount
+        FROM user_memory
+        ORDER BY last_seen DESC
+        LIMIT ?
+      `);
+
+    return statement.all(limit) as unknown as UserMemory[];
+  }
+
   static saveConversation(
     userId: string,
     topic: string,
@@ -456,6 +479,41 @@ export class MemoryService {
     )!;
   }
 
+  static updateConversation(
+    id: number,
+    updates: {
+      summary?: string;
+      importance?: number;
+      lastSeen?: number;
+    }
+  ): boolean {
+    this.ensureInitialized();
+
+    const current = this.getConversation(id);
+    if (!current) {
+      return false;
+    }
+
+    const newSummary = updates.summary !== undefined ? updates.summary.trim() : current.summary;
+    const newImportance =
+      updates.importance !== undefined
+        ? Math.min(10, Math.max(1, Math.floor(updates.importance)))
+        : current.importance;
+    const newLastSeen = updates.lastSeen ?? current.lastSeen;
+
+    const statement = this.database!.prepare(`
+      UPDATE conversation_memory
+      SET
+        summary = ?,
+        importance = ?,
+        last_seen = ?
+      WHERE id = ?
+    `);
+
+    statement.run(newSummary, newImportance, newLastSeen, id);
+    return true;
+  }
+
   static findConversation(
     userId: string,
     topic: string
@@ -525,6 +583,48 @@ export class MemoryService {
       userId,
       safeLimit
     ) as unknown as ConversationMemory[];
+  }
+
+  static getAllConversations(limit = 1000): ConversationMemory[] {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          topic,
+          summary,
+          importance,
+          created_at AS createdAt,
+          last_seen AS lastSeen
+        FROM conversation_memory
+        ORDER BY last_seen DESC
+        LIMIT ?
+      `);
+
+    return statement.all(limit) as unknown as ConversationMemory[];
+  }
+
+  static getConversationsByTopic(topic: string): ConversationMemory[] {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          topic,
+          summary,
+          importance,
+          created_at AS createdAt,
+          last_seen AS lastSeen
+        FROM conversation_memory
+        WHERE topic = ?
+        ORDER BY last_seen DESC
+      `);
+
+    return statement.all(topic.trim().toLowerCase()) as unknown as ConversationMemory[];
   }
 
   static saveEvent(
@@ -640,6 +740,26 @@ export class MemoryService {
       userId,
       safeLimit
     ) as unknown as MemoryEvent[];
+  }
+
+  static getAllEvents(limit = 1000): MemoryEvent[] {
+    this.ensureInitialized();
+
+    const statement =
+      this.database!.prepare(`
+        SELECT
+          id,
+          user_id AS userId,
+          type,
+          content,
+          importance,
+          created_at AS createdAt
+        FROM memory_events
+        ORDER BY created_at DESC
+        LIMIT ?
+      `);
+
+    return statement.all(limit) as unknown as MemoryEvent[];
   }
 
   static getImportantUserEvents(
