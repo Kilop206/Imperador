@@ -384,16 +384,28 @@ export class HybridRetrievalService {
     if (!this.neuralService) {
       return map;
     }
+    
+    for (const candidate of candidates) {
+      try {
+        const score =
+          this.neuralService.compare(
+            query,
+            candidate.text,
+          );
 
-    // O serviço neural trabalha com suas próprias memórias indexadas.
-    // Fazemos a busca no serviço neural e mapeamos por id.
-    const neuralResults = this.neuralService.search(
-      query,
-      { topK: candidates.length, minimumScore: 0 },
-    );
-
-    for (const result of neuralResults) {
-      map.set(result.id, Math.max(0, Math.min(1, result.score)));
+        map.set(
+          candidate.id,
+          Math.max(
+            0,
+            Math.min(1, score),
+          ),
+        );
+      } catch {
+        map.set(
+          candidate.id,
+          0,
+        );
+      }
     }
 
     return map;

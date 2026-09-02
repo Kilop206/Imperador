@@ -44,6 +44,14 @@ import {
   restoreEmotions,
 } from './state/emotionState';
 
+import {
+  ModelManager,
+} from './intelligence/modelManager';
+
+import {
+  ResponseEngine,
+} from './services/responseEngine';
+
 const EMOTION_DECAY_INTERVAL_MS =
   5 * 60 * 1000;
 
@@ -73,6 +81,34 @@ client.once('ready', () => {
   restoreEmotions(
     MemoryService.loadEmotions()
   );
+
+  /*
+   * Inicializa a infraestrutura semântica
+   * somente depois de o sistema de memória
+   * estar pronto.
+   */
+  try {
+    ModelManager.initialize();
+
+    ResponseEngine.setSemanticService(
+      ModelManager.getSemanticContextService()
+    );
+
+    console.log(
+      'Inteligência semântica inicializada:',
+      ModelManager.getStatus()
+    );
+  } catch (error) {
+    /*
+     * A camada semântica é complementar.
+     * Se ela falhar, o restante do bot continua
+     * funcionando normalmente.
+     */
+    console.error(
+      'Erro ao inicializar inteligência semântica:',
+      error
+    );
+  }
 
   emotionDecayInterval =
     setInterval(() => {

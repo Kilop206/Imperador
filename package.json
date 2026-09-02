@@ -2,24 +2,19 @@
   "name": "imperador",
   "version": "1.0.0",
   "description": "Bot do Discord com personalidade imperial baseada em Tibério",
-  "main": "dist/index.js",
+  "main": "build/index.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node build/index.js",
     "test": "tsx --test"
-  },
-  "engines": {
-    "node": ">=24.15.0"
   },
   "keywords": [
     "discord",
     "discord-bot",
-    "typescript",
     "tiberius",
     "sqlite"
   ],
-  "author": "",
+  "author": "Kilop206",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
@@ -28,8 +23,6 @@
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
-    "nodemon": "^3.1.14",
-    "ts-node": "^10.9.2",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }
