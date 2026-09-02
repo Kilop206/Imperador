@@ -1,6 +1,7 @@
 import {
   Client,
   GatewayIntentBits,
+  PermissionFlagsBits,
 } from 'discord.js';
 
 import {
@@ -84,6 +85,10 @@ import {
   AutonomousToolCatalog,
 } from './intelligence/autonomousToolCatalog';
 
+import {
+  AutonomousRuntimeControlService,
+} from './intelligence/autonomousRuntimeControlService';
+
 const EMOTION_DECAY_INTERVAL_MS =
   5 * 60 * 1000;
 
@@ -132,6 +137,10 @@ let autonomousAgent:
   | AutonomousAgentOrchestrator
   | undefined;
 
+let autonomousRuntimeControl:
+  | AutonomousRuntimeControlService
+  | undefined;
+
 client.once('ready', () => {
   console.log(
     `Bot conectado como ${client.user?.tag}`,
@@ -162,12 +171,6 @@ client.once('ready', () => {
     );
   }
 
-  /*
-   * O AutonomousAgentOrchestrator possui suas próprias
-   * barreiras de segurança, mas permanece completamente
-   * desligado em produção até AUTONOMOUS_AGENT_ENABLED
-   * ser explicitamente definido como "true".
-   */
   try {
     const toolRegistry =
       new ToolRegistry();
@@ -204,6 +207,12 @@ client.once('ready', () => {
           cycleWindowMs:
             60 * 60 * 1000,
         },
+      );
+
+    autonomousRuntimeControl =
+      new AutonomousRuntimeControlService(
+        autonomousAgent,
+        safetyPermissionEngine,
       );
 
     console.log(
@@ -280,6 +289,9 @@ client.once('ready', () => {
     autonomousAgent =
       undefined;
 
+    autonomousRuntimeControl =
+      undefined;
+
     console.error(
       'Erro ao inicializar o agente autônomo:',
       error,
@@ -333,6 +345,143 @@ client.on(
   async message => {
     if (message.author.bot) {
       return;
+    }
+
+    /*
+     * Controle administrativo do agente autônomo.
+     *
+     * Os comandos são tratados antes dos sistemas
+     * de memória/emoção para evitar que operações
+     * administrativas contaminem os dados
+     * conversacionais.
+     */
+    if (
+      message.content
+        .trim()
+        .toLowerCase()
+        .startsWith('!autonomia')
+    ) {
+      if (
+        !message.member ||
+        !message.member.permissions.has(
+          PermissionFlagsBits.Administrator,
+        )
+      ) {
+        await message.reply(
+          'Apenas administradores podem controlar o agente autônomo.',
+        );
+
+        return;
+      }
+
+      if (
+        !autonomousRuntimeControl
+      ) {
+        await message.reply(
+          'O controlador do agente autônomo não está disponível.',
+        );
+
+        return;
+      }
+
+      const command =
+        message.content
+          .trim()
+          .split(/\s+/)[1]
+          ?.toLowerCase() ??
+        'status';
+
+      switch (command) {
+        case 'status': {
+          const status =
+            autonomousRuntimeControl.getStatus();
+
+          await message.reply(
+            [
+              '**Estado do agente autônomo**',
+              `Agente: ${
+                status.enabled
+                  ? 'ATIVO'
+                  : 'INATIVO'
+              }`,
+              `Kill switch: ${
+                status.killSwitchEnabled
+                  ? 'ATIVO'
+                  : 'INATIVO'
+              }`,
+              `Orquestrador: ${
+                status.orchestrator.enabled
+                  ? 'habilitado'
+                  : 'desabilitado'
+              }`,
+              `Ciclos na janela: ${status.orchestrator.cycleCount}`,
+              `Objetivos ativos: ${status.orchestrator.activeGoalCount}`,
+              `Planos ativos: ${status.orchestrator.activePlanCount}`,
+              `Execuções de ferramentas na janela: ${status.safety.executionsInWindow}`,
+              `Orçamento utilizado: ${status.safety.budgetUsedInWindow}`,
+              `Auditoria: ${status.safety.auditEntries} registros`,
+              `Última decisão: ${status.orchestrator.lastDecision}`,
+            ].join('\n'),
+          );
+
+          return;
+        }
+
+        case 'on': {
+          autonomousRuntimeControl.enable();
+
+          await message.reply(
+            'Agente autônomo habilitado.',
+          );
+
+          return;
+        }
+
+        case 'off': {
+          autonomousRuntimeControl.disable();
+
+          await message.reply(
+            'Agente autônomo desabilitado.',
+          );
+
+          return;
+        }
+
+        case 'kill': {
+          autonomousRuntimeControl.enableKillSwitch();
+
+          await message.reply(
+            'Kill switch ativado. O agente autônomo foi imediatamente desabilitado.',
+          );
+
+          return;
+        }
+
+        case 'unkill': {
+          autonomousRuntimeControl.disableKillSwitch();
+
+          await message.reply(
+            'Kill switch desativado. O agente permanece desligado até ser habilitado explicitamente.',
+          );
+
+          return;
+        }
+
+        default: {
+          await message.reply(
+            [
+              '**Comandos de autonomia**',
+              '`!autonomia status`',
+              '`!autonomia on`',
+              '`!autonomia off`',
+              '`!autonomia kill`',
+              '`!autonomia unkill`',
+            ].join('\n'),
+          );
+
+          return;
+        }
+      }
     }
 
     TriggerManager.checkTriggers(
@@ -420,6 +569,12 @@ const shutdown = (
   console.log(
     `Recebido ${signal}, desligando bot...`,
   );
+
+  if (
+    autonomousRuntimeControl
+  ) {
+    autonomousRuntimeControl.disable();
+  }
 
   if (
     emotionDecayInterval
