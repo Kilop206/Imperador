@@ -128,8 +128,17 @@ export class ModelPersistenceService {
         2,
       ) + '\n';
 
+    /*
+     * O arquivo temporário precisa ser exclusivo
+     * para esta operação de persistência.
+     *
+     * Usar simplesmente `${filepath}.tmp` permite
+     * que duas gravações concorrentes compartilhem
+     * o mesmo arquivo e uma delas apague o arquivo
+     * enquanto a outra ainda tenta renomeá-lo/copiar.
+     */
     const temporaryPath =
-      `${this.filepath}.tmp`;
+      this.createTemporaryPath();
 
     try {
       writeFileSync(
@@ -140,34 +149,13 @@ export class ModelPersistenceService {
         },
       );
 
-      try {
-        renameSync(
-          temporaryPath,
-          this.filepath,
-        );
-      } catch {
-        // Fallback robusto para Windows quando renameSync falha por lock momentâneo
-        copyFileSync(
-          temporaryPath,
-          this.filepath,
-        );
-
-        try {
-          unlinkSync(
-            temporaryPath,
-          );
-        } catch {
-          // Ignora falha ao limpar arquivo temporário após cópia.
-        }
-      }
+      this.replaceTarget(
+        temporaryPath,
+      );
     } catch (error) {
-      try {
-        unlinkSync(
-          temporaryPath,
-        );
-      } catch {
-        // Ignora falha ao limpar arquivo temporário.
-      }
+      this.safeUnlink(
+        temporaryPath,
+      );
 
       throw error;
     }
@@ -180,20 +168,42 @@ export class ModelPersistenceService {
     }
 
     let raw: string | null = null;
-    for (let attempt = 0; attempt < 5; attempt++) {
+
+    for (
+      let attempt = 0;
+      attempt < 5;
+      attempt++
+    ) {
       try {
         raw = readFileSync(
           this.filepath,
           'utf-8',
         );
+
         break;
-      } catch (err: unknown) {
+      } catch (
+        err: unknown
+      ) {
         const errorCode =
-          err && typeof err === 'object' && 'code' in err
-            ? (err as { code: string }).code
+          err &&
+          typeof err === 'object' &&
+          'code' in err
+            ? (
+                err as {
+                  code: string;
+                }
+              ).code
             : null;
 
-        if (errorCode === 'EBUSY' && attempt < 4) {
+        if (
+          (
+            errorCode ===
+              'EBUSY' ||
+            errorCode ===
+              'EPERM'
+          ) &&
+          attempt < 4
+        ) {
           continue;
         }
 
@@ -211,8 +221,11 @@ export class ModelPersistenceService {
     }
 
     try {
-      const parsed: unknown = JSON.parse(raw);
+      const parsed: unknown =
+        JSON.parse(raw);
+
       this.validate(parsed);
+
       return parsed;
     } catch (error) {
       console.error(
@@ -238,6 +251,67 @@ export class ModelPersistenceService {
     return CURRENT_SCHEMA_VERSION;
   }
 
+  private createTemporaryPath():
+    string {
+    const uniqueSuffix =
+      [
+        process.pid,
+        Date.now(),
+        Math.random()
+          .toString(36)
+          .slice(2),
+      ].join(
+        '-',
+      );
+
+    return `${this.filepath}.${uniqueSuffix}.tmp`;
+  }
+
+  private replaceTarget(
+    temporaryPath: string,
+  ): void {
+    try {
+      renameSync(
+        temporaryPath,
+        this.filepath,
+      );
+
+      return;
+    } catch {
+      /*
+       * No Windows, substituir um arquivo que esteja
+       * momentaneamente aberto pode fazer renameSync
+       * falhar. Nesse caso usamos copyFileSync.
+       */
+    }
+
+    try {
+      copyFileSync(
+        temporaryPath,
+        this.filepath,
+      );
+    } finally {
+      this.safeUnlink(
+        temporaryPath,
+      );
+    }
+  }
+
+  private safeUnlink(
+    filepath: string,
+  ): void {
+    try {
+      unlinkSync(
+        filepath,
+      );
+    } catch {
+      /*
+       * Não há problema se outro fluxo já removeu
+       * o arquivo temporário.
+       */
+    }
+  }
+
   private validate(
     value: unknown,
   ): asserts value is PersistedModels {
@@ -251,7 +325,10 @@ export class ModelPersistenceService {
     }
 
     const data =
-      value as Record<string, unknown>;
+      value as Record<
+        string,
+        unknown
+      >;
 
     if (
       data.schemaVersion !==
@@ -265,7 +342,8 @@ export class ModelPersistenceService {
     }
 
     if (
-      typeof data.savedAt !== 'number' ||
+      typeof data.savedAt !==
+        'number' ||
       !Number.isFinite(
         data.savedAt,
       )
@@ -333,7 +411,10 @@ export class ModelPersistenceService {
   }
 
   private validateWordEmbedding(
-    value: Record<string, unknown>,
+    value: Record<
+      string,
+      unknown
+    >,
   ): void {
     if (
       !Array.isArray(
@@ -342,7 +423,8 @@ export class ModelPersistenceService {
       !Array.isArray(
         value.embeddings,
       ) ||
-      typeof value.dimension !== 'number'
+      typeof value.dimension !==
+        'number'
     ) {
       throw new TypeError(
         'Modelo de word embeddings inválido.',
@@ -360,7 +442,10 @@ export class ModelPersistenceService {
   }
 
   private validateSentenceModel(
-    value: Record<string, unknown>,
+    value: Record<
+      string,
+      unknown
+    >,
   ): void {
     if (
       typeof value.inputDimension !==
@@ -378,7 +463,10 @@ export class ModelPersistenceService {
   }
 
   private validateSimilarity(
-    value: Record<string, unknown>,
+    value: Record<
+      string,
+      unknown
+    >,
   ): void {
     if (
       !this.isObject(
@@ -394,8 +482,8 @@ export class ModelPersistenceService {
     }
 
     for (
-      const document
-      of value.documents
+      const document of
+      value.documents
     ) {
       if (
         !this.isObject(
@@ -414,7 +502,10 @@ export class ModelPersistenceService {
   }
 
   private validateRegistry(
-    value: Record<string, unknown>,
+    value: Record<
+      string,
+      unknown
+    >,
   ): void {
     if (
       !Array.isArray(
@@ -429,8 +520,8 @@ export class ModelPersistenceService {
     }
 
     for (
-      const version
-      of value.versions
+      const version of
+      value.versions
     ) {
       if (
         !this.isObject(
@@ -470,7 +561,10 @@ export class ModelPersistenceService {
 
   private isObject(
     value: unknown,
-  ): value is Record<string, unknown> {
+  ): value is Record<
+    string,
+    unknown
+  > {
     return (
       typeof value ===
         'object' &&

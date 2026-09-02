@@ -35,32 +35,24 @@ class ModelPersistenceService {
             recursive: true,
         });
         const content = JSON.stringify(models, null, 2) + '\n';
-        const temporaryPath = `${this.filepath}.tmp`;
+        /*
+         * O arquivo temporário precisa ser exclusivo
+         * para esta operação de persistência.
+         *
+         * Usar simplesmente `${filepath}.tmp` permite
+         * que duas gravações concorrentes compartilhem
+         * o mesmo arquivo e uma delas apague o arquivo
+         * enquanto a outra ainda tenta renomeá-lo/copiar.
+         */
+        const temporaryPath = this.createTemporaryPath();
         try {
             (0, node_fs_1.writeFileSync)(temporaryPath, content, {
                 encoding: 'utf-8',
             });
-            try {
-                (0, node_fs_1.renameSync)(temporaryPath, this.filepath);
-            }
-            catch {
-                // Fallback robusto para Windows quando renameSync falha por lock momentâneo
-                (0, node_fs_1.copyFileSync)(temporaryPath, this.filepath);
-                try {
-                    (0, node_fs_1.unlinkSync)(temporaryPath);
-                }
-                catch {
-                    // Ignora falha ao limpar arquivo temporário após cópia.
-                }
-            }
+            this.replaceTarget(temporaryPath);
         }
         catch (error) {
-            try {
-                (0, node_fs_1.unlinkSync)(temporaryPath);
-            }
-            catch {
-                // Ignora falha ao limpar arquivo temporário.
-            }
+            this.safeUnlink(temporaryPath);
             throw error;
         }
     }
@@ -75,10 +67,16 @@ class ModelPersistenceService {
                 break;
             }
             catch (err) {
-                const errorCode = err && typeof err === 'object' && 'code' in err
+                const errorCode = err &&
+                    typeof err === 'object' &&
+                    'code' in err
                     ? err.code
                     : null;
-                if (errorCode === 'EBUSY' && attempt < 4) {
+                if ((errorCode ===
+                    'EBUSY' ||
+                    errorCode ===
+                        'EPERM') &&
+                    attempt < 4) {
                     continue;
                 }
                 console.error(`Falha ao carregar modelos persistidos em ${this.filepath}:`, err);
@@ -109,6 +107,46 @@ class ModelPersistenceService {
     getSchemaVersion() {
         return CURRENT_SCHEMA_VERSION;
     }
+    createTemporaryPath() {
+        const uniqueSuffix = [
+            process.pid,
+            Date.now(),
+            Math.random()
+                .toString(36)
+                .slice(2),
+        ].join('-');
+        return `${this.filepath}.${uniqueSuffix}.tmp`;
+    }
+    replaceTarget(temporaryPath) {
+        try {
+            (0, node_fs_1.renameSync)(temporaryPath, this.filepath);
+            return;
+        }
+        catch {
+            /*
+             * No Windows, substituir um arquivo que esteja
+             * momentaneamente aberto pode fazer renameSync
+             * falhar. Nesse caso usamos copyFileSync.
+             */
+        }
+        try {
+            (0, node_fs_1.copyFileSync)(temporaryPath, this.filepath);
+        }
+        finally {
+            this.safeUnlink(temporaryPath);
+        }
+    }
+    safeUnlink(filepath) {
+        try {
+            (0, node_fs_1.unlinkSync)(filepath);
+        }
+        catch {
+            /*
+             * Não há problema se outro fluxo já removeu
+             * o arquivo temporário.
+             */
+        }
+    }
     validate(value) {
         if (!value ||
             typeof value !== 'object') {
@@ -119,7 +157,8 @@ class ModelPersistenceService {
             CURRENT_SCHEMA_VERSION) {
             throw new Error(`Versão de schema incompatível: ${String(data.schemaVersion)}. Esperada: ${CURRENT_SCHEMA_VERSION}.`);
         }
-        if (typeof data.savedAt !== 'number' ||
+        if (typeof data.savedAt !==
+            'number' ||
             !Number.isFinite(data.savedAt)) {
             throw new TypeError('savedAt inválido.');
         }
@@ -143,7 +182,8 @@ class ModelPersistenceService {
     validateWordEmbedding(value) {
         if (!Array.isArray(value.vocabulary) ||
             !Array.isArray(value.embeddings) ||
-            typeof value.dimension !== 'number') {
+            typeof value.dimension !==
+                'number') {
             throw new TypeError('Modelo de word embeddings inválido.');
         }
         if (value.vocabulary.length !==
