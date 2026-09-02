@@ -11,9 +11,11 @@ const autoMemoryService_1 = require("./services/autoMemoryService");
 const textAnalyzer_1 = require("./services/textAnalyzer");
 const emotionEngine_1 = require("./intelligence/emotionEngine");
 const emotionState_1 = require("./state/emotionState");
+const aiRuntimeService_1 = require("./intelligence/aiRuntimeService");
 const modelManager_1 = require("./intelligence/modelManager");
 const responseEngine_1 = require("./services/responseEngine");
 const EMOTION_DECAY_INTERVAL_MS = 5 * 60 * 1000;
+const AI_STATUS_INTERVAL_MS = 30 * 60 * 1000;
 const client = new discord_js_1.Client({
     intents: [
         discord_js_1.GatewayIntentBits.Guilds,
@@ -23,27 +25,19 @@ const client = new discord_js_1.Client({
 });
 let scheduler;
 let emotionDecayInterval;
+let aiStatusInterval;
 client.once('ready', () => {
     console.log(`Bot conectado como ${client.user?.tag}`);
     memoryService_1.MemoryService.initialize();
     (0, emotionState_1.restoreEmotions)(memoryService_1.MemoryService.loadEmotions());
-    /*
-     * Inicializa a infraestrutura semântica
-     * somente depois de o sistema de memória
-     * estar pronto.
-     */
     try {
-        modelManager_1.ModelManager.initialize();
-        responseEngine_1.ResponseEngine.setSemanticService(modelManager_1.ModelManager.getSemanticContextService());
-        console.log('Inteligência semântica inicializada:', modelManager_1.ModelManager.getStatus());
+        aiRuntimeService_1.AIRuntimeService.initialize();
+        responseEngine_1.ResponseEngine.setSemanticService(modelManager_1.ModelManager
+            .getSemanticContextService());
+        console.log('Módulo de IA inicializado:', aiRuntimeService_1.AIRuntimeService.getStatus());
     }
     catch (error) {
-        /*
-         * A camada semântica é complementar.
-         * Se ela falhar, o restante do bot continua
-         * funcionando normalmente.
-         */
-        console.error('Erro ao inicializar inteligência semântica:', error);
+        console.error('Erro ao inicializar o módulo de IA:', error);
     }
     emotionDecayInterval =
         setInterval(() => {
@@ -51,6 +45,15 @@ client.once('ready', () => {
             memoryService_1.MemoryService.saveEmotions(emotionEngine_1.EmotionEngine.getState());
             console.log(`Estado emocional atualizado: ${emotionEngine_1.EmotionEngine.describeMood()}`);
         }, EMOTION_DECAY_INTERVAL_MS);
+    aiStatusInterval =
+        setInterval(() => {
+            try {
+                console.log('Estado do módulo de IA:', aiRuntimeService_1.AIRuntimeService.getStatus());
+            }
+            catch (error) {
+                console.error('Erro ao consultar estado da IA:', error);
+            }
+        }, AI_STATUS_INTERVAL_MS);
     scheduler =
         new scheduler_1.SchedulerService(client);
     scheduler.start();
@@ -83,13 +86,20 @@ const shutdown = (signal) => {
         emotionDecayInterval =
             undefined;
     }
+    if (aiStatusInterval) {
+        clearInterval(aiStatusInterval);
+        aiStatusInterval =
+            undefined;
+    }
     scheduler?.stop();
     modeManager_1.ModeManager.clearModeTimeout();
-    /*
-     * Garante que o estado emocional
-     * atual seja salvo antes do encerramento.
-     */
     memoryService_1.MemoryService.saveEmotions(emotionEngine_1.EmotionEngine.getState());
+    try {
+        modelManager_1.ModelManager.save();
+    }
+    catch (error) {
+        console.error('Erro ao persistir modelos da IA durante encerramento:', error);
+    }
     memoryService_1.MemoryService.close();
     client.destroy();
     process.exit(0);
@@ -102,12 +112,16 @@ async function main() {
     }
     try {
         memoryService_1.MemoryService.initialize();
+        aiRuntimeService_1.AIRuntimeService.initialize();
         await client.login(config_1.config.token);
     }
     catch (error) {
         console.error('Erro ao iniciar o bot:', error);
         if (emotionDecayInterval) {
             clearInterval(emotionDecayInterval);
+        }
+        if (aiStatusInterval) {
+            clearInterval(aiStatusInterval);
         }
         memoryService_1.MemoryService.close();
         process.exit(1);

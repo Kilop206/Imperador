@@ -31,6 +31,10 @@ import {
 } from './semanticSentenceDataset';
 
 import {
+  SemanticFeedbackService,
+} from './semanticFeedbackService';
+
+import {
   ModelPersistenceService,
   type PersistedModels,
 } from './modelPersistenceService';
@@ -68,6 +72,10 @@ export interface ModelManagerStatus {
   neuralMemory: {
     ready: boolean;
     memoryCount: number;
+  };
+
+  semanticFeedback: {
+    exampleCount: number;
   };
 
   semanticContext: boolean;
@@ -109,6 +117,8 @@ export class ModelManager {
     ) {
       return this.services;
     }
+
+    SemanticFeedbackService.initialize();
 
     const persisted =
       this.persistence.load();
@@ -208,12 +218,6 @@ export class ModelManager {
     return this.persistence;
   }
 
-  /**
-   * Treina um novo modelo candidato usando o serviço de fine-tuning.
-   *
-   * Se o candidato for ativado pelo FineTuningService, o ModelManager
-   * sincroniza imediatamente o modelo ativo e persiste o novo estado.
-   */
   public static fineTune(
     input: SemanticFineTuningInput,
   ): SemanticFineTuningResult {
@@ -235,14 +239,40 @@ export class ModelManager {
   }
 
   /**
-   * Ativa manualmente uma versão registrada.
+   * Fine-tuning utilizando explicitamente os dados
+   * semânticos coletados por feedback humano.
    *
-   * A ativação atualiza:
-   * - SemanticModelRegistry
-   * - SemanticSentenceModel usado em runtime
-   * - NeuralSemanticMemoryService
-   * - persistência
+   * O dataset-base continua sendo usado como núcleo
+   * de treinamento para evitar esquecimento catastrófico.
    */
+  public static fineTuneFromFeedback(
+    validationDataset =
+      SEMANTIC_SENTENCE_DATASET,
+    testDataset =
+      SEMANTIC_SENTENCE_DATASET,
+  ): SemanticFineTuningResult {
+    const feedback =
+      SemanticFeedbackService
+        .getTrainingPairs();
+
+    if (feedback.length === 0) {
+      throw new Error(
+        'Não existem exemplos semânticos de feedback para treinar.',
+      );
+    }
+
+    return this.fineTune({
+      originalDataset: [
+        ...SEMANTIC_SENTENCE_DATASET,
+        ...feedback,
+      ],
+
+      validationDataset,
+
+      testDataset,
+    });
+  }
+
   public static activateVersion(
     version: number,
   ): boolean {
@@ -264,9 +294,6 @@ export class ModelManager {
     return true;
   }
 
-  /**
-   * Retorna a versão atualmente ativa.
-   */
   public static getActiveVersion():
     number | null {
     const active =
@@ -276,9 +303,6 @@ export class ModelManager {
     return active?.version ?? null;
   }
 
-  /**
-   * Persiste explicitamente o estado atual dos modelos.
-   */
   public static save(): void {
     if (!this.services) {
       return;
@@ -309,6 +333,12 @@ export class ModelManager {
         neuralMemory: {
           ready: false,
           memoryCount: 0,
+        },
+
+        semanticFeedback: {
+          exampleCount:
+            SemanticFeedbackService
+              .getCount(),
         },
 
         semanticContext: false,
@@ -402,6 +432,12 @@ export class ModelManager {
             .getMemoryCount(),
       },
 
+      semanticFeedback: {
+        exampleCount:
+          SemanticFeedbackService
+            .getCount(),
+      },
+
       semanticContext:
         semanticContextService
           .isConfigured(),
@@ -428,12 +464,6 @@ export class ModelManager {
     }
   }
 
-  /**
-   * Sincroniza a instância de runtime com a versão ativa do registry.
-   *
-   * Importante:
-   * O registry é a fonte de verdade sobre qual modelo está ativo.
-   */
   private static synchronizeActiveModel(): void {
     const services =
       this.getServices();
@@ -466,11 +496,6 @@ export class ModelManager {
         services.wordEmbeddingModel,
         restoredModel,
       );
-
-    /*
-     * O SemanticContextService mantém uma referência para o mesmo
-     * NeuralSemanticMemoryService, portanto não precisamos reconstruí-lo.
-     */
   }
 
   private static trainFromScratch():
@@ -478,21 +503,16 @@ export class ModelManager {
     const trainingDocuments =
       this.buildTrainingDocuments();
 
-    /*
-     * 1. Word embeddings
-     */
     const wordEmbeddingModel =
       new WordEmbeddingModel();
 
     wordEmbeddingModel.train(
       trainingDocuments.map(
-        (document) => document.text,
+        document =>
+          document.text,
       ),
     );
 
-    /*
-     * 2. Modelo semântico de sentença
-     */
     const sentenceModel =
       new SemanticSentenceModel();
 
@@ -501,9 +521,6 @@ export class ModelManager {
       SEMANTIC_SENTENCE_DATASET,
     );
 
-    /*
-     * 3. Similaridade TF-IDF
-     */
     const similarityService =
       new SemanticSimilarityService();
 
@@ -511,9 +528,6 @@ export class ModelManager {
       trainingDocuments,
     );
 
-    /*
-     * 4. Memória neural
-     */
     const neuralSemanticMemoryService =
       new NeuralSemanticMemoryService();
 
@@ -522,9 +536,6 @@ export class ModelManager {
       sentenceModel,
     );
 
-    /*
-     * 5. Registry
-     */
     const modelRegistry =
       new SemanticModelRegistry();
 
@@ -555,17 +566,11 @@ export class ModelManager {
       );
     }
 
-    /*
-     * 6. Fine-tuning
-     */
     const fineTuningService =
       new SemanticFineTuningService(
         modelRegistry,
       );
 
-    /*
-     * 7. Contexto semântico
-     */
     const semanticContextService =
       new SemanticContextService();
 
@@ -594,9 +599,6 @@ export class ModelManager {
     persisted: PersistedModels,
   ):
     ModelManagerServices {
-    /*
-     * 1. Restaurar embeddings
-     */
     const wordEmbeddingModel =
       new WordEmbeddingModel();
 
@@ -604,9 +606,6 @@ export class ModelManager {
       persisted.wordEmbedding,
     );
 
-    /*
-     * 2. Restaurar registry
-     */
     const modelRegistry =
       new SemanticModelRegistry();
 
@@ -623,9 +622,6 @@ export class ModelManager {
       );
     }
 
-    /*
-     * 3. Restaurar modelo semântico ativo
-     */
     const sentenceModel =
       modelRegistry.restoreModel(
         active.version,
@@ -637,9 +633,6 @@ export class ModelManager {
       );
     }
 
-    /*
-     * 4. Restaurar TF-IDF
-     */
     const similarityService =
       new SemanticSimilarityService();
 
@@ -647,9 +640,6 @@ export class ModelManager {
       persisted.similarity,
     );
 
-    /*
-     * 5. Restaurar memória neural
-     */
     const neuralSemanticMemoryService =
       new NeuralSemanticMemoryService();
 
@@ -658,17 +648,11 @@ export class ModelManager {
       sentenceModel,
     );
 
-    /*
-     * 6. Fine-tuning
-     */
     const fineTuningService =
       new SemanticFineTuningService(
         modelRegistry,
       );
 
-    /*
-     * 7. Contexto semântico
-     */
     const semanticContextService =
       new SemanticContextService();
 

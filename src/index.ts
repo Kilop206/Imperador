@@ -45,6 +45,10 @@ import {
 } from './state/emotionState';
 
 import {
+  AIRuntimeService,
+} from './intelligence/aiRuntimeService';
+
+import {
   ModelManager,
 } from './intelligence/modelManager';
 
@@ -54,6 +58,9 @@ import {
 
 const EMOTION_DECAY_INTERVAL_MS =
   5 * 60 * 1000;
+
+const AI_STATUS_INTERVAL_MS =
+  30 * 60 * 1000;
 
 const client = new Client({
   intents: [
@@ -71,42 +78,37 @@ let emotionDecayInterval:
   | NodeJS.Timeout
   | undefined;
 
+let aiStatusInterval:
+  | NodeJS.Timeout
+  | undefined;
+
 client.once('ready', () => {
   console.log(
-    `Bot conectado como ${client.user?.tag}`
+    `Bot conectado como ${client.user?.tag}`,
   );
 
   MemoryService.initialize();
 
   restoreEmotions(
-    MemoryService.loadEmotions()
+    MemoryService.loadEmotions(),
   );
 
-  /*
-   * Inicializa a infraestrutura semântica
-   * somente depois de o sistema de memória
-   * estar pronto.
-   */
   try {
-    ModelManager.initialize();
+    AIRuntimeService.initialize();
 
     ResponseEngine.setSemanticService(
-      ModelManager.getSemanticContextService()
+      ModelManager
+        .getSemanticContextService(),
     );
 
     console.log(
-      'Inteligência semântica inicializada:',
-      ModelManager.getStatus()
+      'Módulo de IA inicializado:',
+      AIRuntimeService.getStatus(),
     );
   } catch (error) {
-    /*
-     * A camada semântica é complementar.
-     * Se ela falhar, o restante do bot continua
-     * funcionando normalmente.
-     */
     console.error(
-      'Erro ao inicializar inteligência semântica:',
-      error
+      'Erro ao inicializar o módulo de IA:',
+      error,
     );
   }
 
@@ -115,13 +117,28 @@ client.once('ready', () => {
       EmotionEngine.decay();
 
       MemoryService.saveEmotions(
-        EmotionEngine.getState()
+        EmotionEngine.getState(),
       );
 
       console.log(
-        `Estado emocional atualizado: ${EmotionEngine.describeMood()}`
+        `Estado emocional atualizado: ${EmotionEngine.describeMood()}`,
       );
     }, EMOTION_DECAY_INTERVAL_MS);
+
+  aiStatusInterval =
+    setInterval(() => {
+      try {
+        console.log(
+          'Estado do módulo de IA:',
+          AIRuntimeService.getStatus(),
+        );
+      } catch (error) {
+        console.error(
+          'Erro ao consultar estado da IA:',
+          error,
+        );
+      }
+    }, AI_STATUS_INTERVAL_MS);
 
   scheduler =
     new SchedulerService(client);
@@ -137,7 +154,7 @@ client.on(
     }
 
     TriggerManager.checkTriggers(
-      message.content
+      message.content,
     );
 
     /*
@@ -147,53 +164,62 @@ client.on(
      */
     const analysis =
       TextAnalyzer.analyze(
-        message.content
+        message.content,
       );
 
     AutoMemoryService.processMessage(
       message.author.id,
       message.author.username,
-      message.content
+      message.content,
     );
 
     EmotionEngine.processMessage(
-      analysis
+      analysis,
     );
 
     MemoryService.saveEmotions(
-      EmotionEngine.getState()
+      EmotionEngine.getState(),
     );
 
     if (
       ReplyService.shouldReply(message)
     ) {
       await ReplyService.reply(
-        message
+        message,
       );
     }
-  }
+  },
 );
 
 client.on('error', error => {
   console.error(
     'Erro no cliente Discord:',
-    error
+    error,
   );
 });
 
 const shutdown = (
-  signal: string
+  signal: string,
 ): void => {
   console.log(
-    `Recebido ${signal}, desligando bot...`
+    `Recebido ${signal}, desligando bot...`,
   );
 
   if (emotionDecayInterval) {
     clearInterval(
-      emotionDecayInterval
+      emotionDecayInterval,
     );
 
     emotionDecayInterval =
+      undefined;
+  }
+
+  if (aiStatusInterval) {
+    clearInterval(
+      aiStatusInterval,
+    );
+
+    aiStatusInterval =
       undefined;
   }
 
@@ -201,13 +227,18 @@ const shutdown = (
 
   ModeManager.clearModeTimeout();
 
-  /*
-   * Garante que o estado emocional
-   * atual seja salvo antes do encerramento.
-   */
   MemoryService.saveEmotions(
-    EmotionEngine.getState()
+    EmotionEngine.getState(),
   );
+
+  try {
+    ModelManager.save();
+  } catch (error) {
+    console.error(
+      'Erro ao persistir modelos da IA durante encerramento:',
+      error,
+    );
+  }
 
   MemoryService.close();
 
@@ -217,11 +248,11 @@ const shutdown = (
 };
 
 process.on('SIGINT', () =>
-  shutdown('SIGINT')
+  shutdown('SIGINT'),
 );
 
 process.on('SIGTERM', () =>
-  shutdown('SIGTERM')
+  shutdown('SIGTERM'),
 );
 
 async function main(): Promise<void> {
@@ -232,18 +263,26 @@ async function main(): Promise<void> {
   try {
     MemoryService.initialize();
 
+    AIRuntimeService.initialize();
+
     await client.login(
-      config.token
+      config.token,
     );
   } catch (error) {
     console.error(
       'Erro ao iniciar o bot:',
-      error
+      error,
     );
 
     if (emotionDecayInterval) {
       clearInterval(
-        emotionDecayInterval
+        emotionDecayInterval,
+      );
+    }
+
+    if (aiStatusInterval) {
+      clearInterval(
+        aiStatusInterval,
       );
     }
 
