@@ -11,6 +11,8 @@ const intentCandidateService_1 = require("../intelligence/intentCandidateService
 const intentFeedbackService_1 = require("../intelligence/intentFeedbackService");
 const intentLearningService_1 = require("../intelligence/intentLearningService");
 const semanticMessageActiveLearningService_1 = require("./semanticMessageActiveLearningService");
+const selfEvaluationEngine_1 = require("../intelligence/selfEvaluationEngine");
+const emotionEngine_1 = require("../intelligence/emotionEngine");
 const SPECIAL_COMMANDS = new Set([
     '!tiberio_caotico',
     '!tiberio_bebado',
@@ -30,6 +32,7 @@ const SPECIAL_COMMANDS = new Set([
     '!tiberio_rejeitar',
     '!tiberio_semantic_candidatos',
     '!tiberio_semantic_status',
+    '!tiberio_qualidade',
 ]);
 const VALID_INTENTS = [
     'aggressive',
@@ -246,6 +249,10 @@ class ReplyService {
             '!tiberio_semantic_status') {
             return this.getSemanticLearningStatus();
         }
+        if (command ===
+            '!tiberio_qualidade') {
+            return this.getQualityReport();
+        }
         if (SPECIAL_COMMANDS.has(command)) {
             return this.handleCommand(content, userId, username);
         }
@@ -317,6 +324,38 @@ class ReplyService {
                 : String(error)}`);
         }
     }
+    static getQualityReport() {
+        try {
+            const metrics = selfEvaluationEngine_1.SelfEvaluationEngine.getAggregateMetrics();
+            const last = selfEvaluationEngine_1.SelfEvaluationEngine.getLastEvaluation();
+            const lines = [
+                '=== Relatório de Autoavaliação Contínua ===',
+                `Total de respostas avaliadas: ${metrics.totalEvaluations}`,
+                `Qualidade percebida média: ${(metrics.averageQuality * 100).toFixed(1)}%`,
+                `Relevância média: ${(metrics.averageRelevance * 100).toFixed(1)}%`,
+                `Consistência de personalidade: ${(metrics.averagePersonalityConsistency * 100).toFixed(1)}%`,
+                `Novidade (ausência de repetição): ${(metrics.averageNovelty * 100).toFixed(1)}%`,
+                `Taxa de falha: ${(metrics.failureRate * 100).toFixed(1)}%`,
+                `Índice de estabilidade: ${(metrics.stabilityScore * 100).toFixed(1)}%`,
+            ];
+            if (last) {
+                lines.push('');
+                lines.push('--- Última Resposta Avaliada ---');
+                lines.push(`Input: "${last.userMessage}"`);
+                lines.push(`Resposta: "${last.responseText}"`);
+                lines.push(`Qualidade: ${(last.metrics.overallQuality * 100).toFixed(1)}%`);
+                if (last.diagnostics.length > 0) {
+                    lines.push(`Diagnósticos: ${last.diagnostics.join(' | ')}`);
+                }
+            }
+            return lines.join('\n');
+        }
+        catch (error) {
+            return (`Falha ao gerar relatório de qualidade: ${error instanceof Error
+                ? error.message
+                : String(error)}`);
+        }
+    }
     static handleCommand(content, userId, _username) {
         const command = content
             .toLowerCase()
@@ -376,15 +415,23 @@ class ReplyService {
             }
             await message.reply(replyText);
             console.log(`Resposta enviada para mensagem de ${message.author.username}: ${replyText}`);
-            /*
-             * Integração com Semantic Active Learning:
-             * Avalia a interação do usuário com a resposta emitida.
-             * Se o par revelar incerteza semântica, novidade ou conflito,
-             * é enfileirado como candidato semântico para revisão humana posterior.
-             * NÃO adiciona ao treinamento automaticamente.
-             */
             const trimmedContent = message.content.trim();
             if (!trimmedContent.startsWith('!')) {
+                /*
+                 * 1. Integração com Self-Evaluation Engine:
+                 * Avalia continuamente a resposta emitida pelo Imperador.
+                 */
+                selfEvaluationEngine_1.SelfEvaluationEngine.evaluate(trimmedContent, replyText, {
+                    mode: modeManager_1.ModeManager.getMode(),
+                    emotionState: emotionEngine_1.EmotionEngine.getState(),
+                });
+                /*
+                 * 2. Integração com Semantic Active Learning:
+                 * Avalia a interação do usuário com a resposta emitida.
+                 * Se o par revelar incerteza semântica, novidade ou conflito,
+                 * é enfileirado como candidato semântico para revisão humana posterior.
+                 * NÃO adiciona ao treinamento automaticamente.
+                 */
                 semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.processInteraction(trimmedContent, replyText);
             }
         }

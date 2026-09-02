@@ -44,6 +44,14 @@ import {
   SemanticMessageActiveLearningService,
 } from './semanticMessageActiveLearningService';
 
+import {
+  SelfEvaluationEngine,
+} from '../intelligence/selfEvaluationEngine';
+
+import {
+  EmotionEngine,
+} from '../intelligence/emotionEngine';
+
 const SPECIAL_COMMANDS =
   new Set([
     '!tiberio_caotico',
@@ -64,6 +72,7 @@ const SPECIAL_COMMANDS =
     '!tiberio_rejeitar',
     '!tiberio_semantic_candidatos',
     '!tiberio_semantic_status',
+    '!tiberio_qualidade',
   ]);
 
 const VALID_INTENTS:
@@ -555,6 +564,13 @@ export class ReplyService {
     }
 
     if (
+      command ===
+      '!tiberio_qualidade'
+    ) {
+      return this.getQualityReport();
+    }
+
+    if (
       SPECIAL_COMMANDS.has(
         command
       )
@@ -696,6 +712,45 @@ export class ReplyService {
     }
   }
 
+  private static getQualityReport(): string {
+    try {
+      const metrics = SelfEvaluationEngine.getAggregateMetrics();
+      const last = SelfEvaluationEngine.getLastEvaluation();
+
+      const lines = [
+        '=== Relatório de Autoavaliação Contínua ===',
+        `Total de respostas avaliadas: ${metrics.totalEvaluations}`,
+        `Qualidade percebida média: ${(metrics.averageQuality * 100).toFixed(1)}%`,
+        `Relevância média: ${(metrics.averageRelevance * 100).toFixed(1)}%`,
+        `Consistência de personalidade: ${(metrics.averagePersonalityConsistency * 100).toFixed(1)}%`,
+        `Novidade (ausência de repetição): ${(metrics.averageNovelty * 100).toFixed(1)}%`,
+        `Taxa de falha: ${(metrics.failureRate * 100).toFixed(1)}%`,
+        `Índice de estabilidade: ${(metrics.stabilityScore * 100).toFixed(1)}%`,
+      ];
+
+      if (last) {
+        lines.push('');
+        lines.push('--- Última Resposta Avaliada ---');
+        lines.push(`Input: "${last.userMessage}"`);
+        lines.push(`Resposta: "${last.responseText}"`);
+        lines.push(`Qualidade: ${(last.metrics.overallQuality * 100).toFixed(1)}%`);
+        if (last.diagnostics.length > 0) {
+          lines.push(`Diagnósticos: ${last.diagnostics.join(' | ')}`);
+        }
+      }
+
+      return lines.join('\n');
+    } catch (error) {
+      return (
+        `Falha ao gerar relatório de qualidade: ${
+          error instanceof Error
+            ? error.message
+            : String(error)
+        }`
+      );
+    }
+  }
+
   static handleCommand(
     content: string,
     userId?: string,
@@ -821,18 +876,31 @@ export class ReplyService {
         `Resposta enviada para mensagem de ${message.author.username}: ${replyText}`
       );
 
-      /*
-       * Integração com Semantic Active Learning:
-       * Avalia a interação do usuário com a resposta emitida.
-       * Se o par revelar incerteza semântica, novidade ou conflito,
-       * é enfileirado como candidato semântico para revisão humana posterior.
-       * NÃO adiciona ao treinamento automaticamente.
-       */
       const trimmedContent = message.content.trim();
       if (!trimmedContent.startsWith('!')) {
+        /*
+         * 1. Integração com Self-Evaluation Engine:
+         * Avalia continuamente a resposta emitida pelo Imperador.
+         */
+        SelfEvaluationEngine.evaluate(
+          trimmedContent,
+          replyText,
+          {
+            mode: ModeManager.getMode(),
+            emotionState: EmotionEngine.getState(),
+          },
+        );
+
+        /*
+         * 2. Integração com Semantic Active Learning:
+         * Avalia a interação do usuário com a resposta emitida.
+         * Se o par revelar incerteza semântica, novidade ou conflito,
+         * é enfileirado como candidato semântico para revisão humana posterior.
+         * NÃO adiciona ao treinamento automaticamente.
+         */
         SemanticMessageActiveLearningService.processInteraction(
           trimmedContent,
-          replyText
+          replyText,
         );
       }
     } catch (error) {
