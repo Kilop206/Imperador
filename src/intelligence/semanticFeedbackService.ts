@@ -1,67 +1,59 @@
-import {
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs';
-
-import {
-  dirname,
-  join,
-} from 'node:path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import type {
   SemanticSentencePair,
 } from './semanticSentenceDataset';
 
-export interface SemanticFeedbackExample {
+export type SemanticFeedbackSource =
+  | 'human'
+  | 'automatic'
+  | 'hard-negative';
+
+export interface SemanticFeedback {
   id: number;
   first: string;
   second: string;
   label: 0 | 1;
+  source: SemanticFeedbackSource;
   createdAt: number;
-  source:
-    | 'human'
-    | 'system'
-    | 'mined';
 }
 
-interface SemanticFeedbackData {
+interface FeedbackData {
   version: number;
   nextId: number;
-  examples: SemanticFeedbackExample[];
+  feedback: SemanticFeedback[];
 }
 
 const DATA_DIRECTORY =
-  join(
+  path.join(
     process.cwd(),
-    'data',
+    'data'
   );
 
-const DEFAULT_FILE =
-  join(
+const DEFAULT_FILE_PATH =
+  path.join(
     DATA_DIRECTORY,
-    'semantic_feedback.json',
+    'semantic_feedback.json'
   );
 
-const MAX_EXAMPLES = 10000;
+const MAX_FEEDBACK = 5000;
 
 export class SemanticFeedbackService {
   private static filePath =
-    DEFAULT_FILE;
+    DEFAULT_FILE_PATH;
 
-  private static data:
-    SemanticFeedbackData = {
+  private static data: FeedbackData = {
     version: 1,
     nextId: 1,
-    examples: [],
+    feedback: [],
   };
 
-  private static initialized = false;
+  private static initialized =
+    false;
 
-  public static initialize(
-    filePath = DEFAULT_FILE,
+  static initialize(
+    filePath = DEFAULT_FILE_PATH
   ): void {
     this.filePath = filePath;
 
@@ -73,21 +65,18 @@ export class SemanticFeedbackService {
     this.initialized = true;
   }
 
-  public static ensureInitialized(): void {
+  static ensureInitialized(): void {
     if (!this.initialized) {
       this.initialize();
     }
   }
 
-  public static add(
+  static add(
     first: string,
     second: string,
     label: 0 | 1,
-    source:
-      | 'human'
-      | 'system'
-      | 'mined' = 'human',
-  ): SemanticFeedbackExample {
+    source: SemanticFeedbackSource = 'human'
+  ): SemanticFeedback | null {
     this.ensureInitialized();
 
     const normalizedFirst =
@@ -100,118 +89,175 @@ export class SemanticFeedbackService {
       !normalizedFirst ||
       !normalizedSecond
     ) {
-      throw new Error(
-        'As duas frases precisam possuir conteúdo.',
-      );
-    }
-
-    const exists =
-      this.data.examples.some(
-        example =>
-          this.normalize(example.first) ===
-            this.normalize(normalizedFirst) &&
-          this.normalize(example.second) ===
-            this.normalize(normalizedSecond) &&
-          example.label === label,
-      );
-
-    if (exists) {
-      throw new Error(
-        'Este exemplo semântico já existe.',
-      );
+      return null;
     }
 
     if (
-      this.data.examples.length >=
-      MAX_EXAMPLES
+      normalizedFirst ===
+      normalizedSecond
+    ) {
+      return null;
+    }
+
+    if (
+      label !== 0 &&
+      label !== 1
+    ) {
+      return null;
+    }
+
+    if (
+      source !== 'human' &&
+      source !== 'automatic' &&
+      source !== 'hard-negative'
+    ) {
+      return null;
+    }
+
+    const normalizedPair =
+      this.normalizePair(
+        normalizedFirst,
+        normalizedSecond
+      );
+
+    const alreadyExists =
+      this.data.feedback.some(
+        item =>
+          this.normalizePair(
+            item.first,
+            item.second
+          ) === normalizedPair &&
+          item.label === label
+      );
+
+    if (alreadyExists) {
+      return null;
+    }
+
+    if (
+      this.data.feedback.length >=
+      MAX_FEEDBACK
     ) {
       this.removeOldest();
     }
 
-    const example:
-      SemanticFeedbackExample = {
-      id: this.data.nextId++,
-      first: normalizedFirst,
-      second: normalizedSecond,
+    const entry: SemanticFeedback = {
+      id:
+        this.data.nextId++,
+      first:
+        normalizedFirst,
+      second:
+        normalizedSecond,
       label,
-      createdAt: Date.now(),
       source,
+      createdAt:
+        Date.now(),
     };
 
-    this.data.examples.push(
-      example,
+    this.data.feedback.push(
+      entry
     );
 
     this.save();
 
-    return {
-      ...example,
-    };
+    return entry;
   }
 
-  public static addPair(
+  static addPair(
     pair: SemanticSentencePair,
-    source:
-      | 'human'
-      | 'system'
-      | 'mined' = 'human',
-  ): SemanticFeedbackExample {
+    source: SemanticFeedbackSource = 'human'
+  ): SemanticFeedback | null {
     return this.add(
       pair.first,
       pair.second,
       pair.label,
-      source,
+      source
     );
   }
 
-  public static getAll():
-    SemanticFeedbackExample[] {
+  static getAll(): SemanticFeedback[] {
     this.ensureInitialized();
 
-    return this.data.examples.map(
-      example => ({
-        ...example,
-      }),
+    return this.data.feedback
+      .map(item => ({
+        ...item,
+      }));
+  }
+
+  static getById(
+    id: number
+  ): SemanticFeedback | null {
+    this.ensureInitialized();
+
+    return (
+      this.data.feedback.find(
+        item =>
+          item.id === id
+      ) ?? null
     );
   }
 
-  public static getTrainingPairs():
+  static getByLabel(
+    label: 0 | 1
+  ): SemanticFeedback[] {
+    this.ensureInitialized();
+
+    return this.data.feedback
+      .filter(
+        item =>
+          item.label === label
+      )
+      .map(item => ({
+        ...item,
+      }));
+  }
+
+  static getBySource(
+    source: SemanticFeedbackSource
+  ): SemanticFeedback[] {
+    this.ensureInitialized();
+
+    return this.data.feedback
+      .filter(
+        item =>
+          item.source === source
+      )
+      .map(item => ({
+        ...item,
+      }));
+  }
+
+  static getTrainingPairs():
     SemanticSentencePair[] {
     this.ensureInitialized();
 
-    return this.data.examples.map(
-      example => ({
-        first: example.first,
-        second: example.second,
-        label: example.label,
-      }),
+    return this.data.feedback.map(
+      item => ({
+        first: item.first,
+        second: item.second,
+        label: item.label,
+      })
     );
   }
 
-  public static getCount(): number {
-    this.ensureInitialized();
-
-    return this.data.examples.length;
-  }
-
-  public static remove(
-    id: number,
+  static remove(
+    id: number
   ): boolean {
     this.ensureInitialized();
 
     const index =
-      this.data.examples.findIndex(
-        example =>
-          example.id === id,
+      this.data.feedback.findIndex(
+        item =>
+          item.id === id
       );
 
     if (index < 0) {
       return false;
     }
 
-    this.data.examples.splice(
+    this.data.feedback.splice(
       index,
-      1,
+      1
     );
 
     this.save();
@@ -219,66 +265,225 @@ export class SemanticFeedbackService {
     return true;
   }
 
-  public static clear(): void {
+  static clear(): number {
     this.ensureInitialized();
 
-    this.data.examples = [];
+    const count =
+      this.data.feedback.length;
+
+    if (count === 0) {
+      return 0;
+    }
+
+    this.data.feedback = [];
 
     this.save();
+
+    return count;
   }
 
-  public static reset(): void {
+  static getCount(): number {
+    this.ensureInitialized();
+
+    return this.data.feedback.length;
+  }
+
+  static getPositiveCount(): number {
+    return this.getByLabel(1)
+      .length;
+  }
+
+  static getNegativeCount(): number {
+    return this.getByLabel(0)
+      .length;
+  }
+
+  static getSourceCount(
+    source: SemanticFeedbackSource
+  ): number {
+    return this.getBySource(
+      source
+    ).length;
+  }
+
+  static hasPair(
+    first: string,
+    second: string,
+    label?: 0 | 1
+  ): boolean {
+    this.ensureInitialized();
+
+    const normalizedPair =
+      this.normalizePair(
+        first,
+        second
+      );
+
+    return this.data.feedback.some(
+      item => {
+        if (
+          this.normalizePair(
+            item.first,
+            item.second
+          ) !== normalizedPair
+        ) {
+          return false;
+        }
+
+        if (
+          label === undefined
+        ) {
+          return true;
+        }
+
+        return item.label === label;
+      }
+    );
+  }
+
+  static toTrainingPairs():
+    SemanticSentencePair[] {
+    return this.getTrainingPairs();
+  }
+
+  static reset(): void {
     this.data = {
       version: 1,
       nextId: 1,
-      examples: [],
+      feedback: [],
     };
 
     this.initialized = false;
+    this.filePath =
+      DEFAULT_FILE_PATH;
+  }
+
+  private static normalizePair(
+    first: string,
+    second: string
+  ): string {
+    const normalizedFirst =
+      this.normalizeText(first);
+
+    const normalizedSecond =
+      this.normalizeText(second);
+
+    return [
+      normalizedFirst,
+      normalizedSecond,
+    ]
+      .sort()
+      .join('\u0000');
+  }
+
+  private static normalizeText(
+    text: string
+  ): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(
+        /[\u0300-\u036f]/g,
+        ''
+      )
+      .replace(
+        /[^\p{L}\p{N}\s]/gu,
+        ' '
+      )
+      .replace(
+        /\s+/g,
+        ' '
+      )
+      .trim();
+  }
+
+  private static removeOldest(): void {
+    if (
+      this.data.feedback.length === 0
+    ) {
+      return;
+    }
+
+    let oldestIndex = 0;
+
+    for (
+      let index = 1;
+      index <
+      this.data.feedback.length;
+      index += 1
+    ) {
+      if (
+        this.data.feedback[index]
+          .createdAt <
+        this.data.feedback[
+          oldestIndex
+        ].createdAt
+      ) {
+        oldestIndex = index;
+      }
+    }
+
+    this.data.feedback.splice(
+      oldestIndex,
+      1
+    );
   }
 
   private static load():
-    SemanticFeedbackData {
+    FeedbackData {
     try {
-      let raw: string;
-
-      try {
-        raw = readFileSync(
-          this.filePath,
-          'utf-8',
-        );
-      } catch {
+      if (
+        !fs.existsSync(
+          this.filePath
+        )
+      ) {
         return {
           version: 1,
           nextId: 1,
-          examples: [],
+          feedback: [],
         };
       }
 
+      const raw =
+        fs.readFileSync(
+          this.filePath,
+          'utf-8'
+        );
+
       const parsed =
         JSON.parse(
-          raw,
-        ) as Partial<SemanticFeedbackData>;
+          raw
+        ) as Partial<FeedbackData>;
 
       if (
         parsed.version !== 1 ||
         !Array.isArray(
-          parsed.examples,
+          parsed.feedback
         ) ||
         typeof parsed.nextId !==
           'number'
       ) {
         throw new Error(
-          'Arquivo de feedback semântico inválido.',
+          'Arquivo de feedback semântico inválido.'
         );
       }
 
-      const examples =
-        parsed.examples.filter(
-          example =>
-            this.isValidExample(
-              example,
+      const feedback =
+        parsed.feedback.filter(
+          item =>
+            this.isValidFeedback(
+              item
+            )
+        );
+
+      const highestId =
+        feedback.reduce(
+          (max, item) =>
+            Math.max(
+              max,
+              item.id
             ),
+          0
         );
 
       return {
@@ -287,10 +492,11 @@ export class SemanticFeedbackService {
           Math.max(
             1,
             Math.floor(
-              parsed.nextId,
+              parsed.nextId
             ),
+            highestId + 1
           ),
-        examples,
+        feedback,
       };
     } catch (error) {
       throw new Error(
@@ -298,130 +504,87 @@ export class SemanticFeedbackService {
           error instanceof Error
             ? error.message
             : String(error)
-        }`,
+        }`
       );
     }
   }
 
   private static save(): void {
-    mkdirSync(
-      dirname(this.filePath),
+    fs.mkdirSync(
+      path.dirname(
+        this.filePath
+      ),
       {
         recursive: true,
-      },
+      }
     );
 
     const temporaryPath =
       `${this.filePath}.tmp`;
 
-    try {
-      writeFileSync(
-        temporaryPath,
-        JSON.stringify(
-          this.data,
-          null,
-          2,
-        ),
-        'utf-8',
-      );
+    fs.writeFileSync(
+      temporaryPath,
+      JSON.stringify(
+        this.data,
+        null,
+        2
+      ),
+      'utf-8'
+    );
 
-      renameSync(
-        temporaryPath,
-        this.filePath,
-      );
-    } catch (error) {
-      try {
-        unlinkSync(
-          temporaryPath,
-        );
-      } catch {
-        // Ignora falha de limpeza.
-      }
-
-      throw error;
-    }
-  }
-
-  private static removeOldest(): void {
-    let oldestIndex = 0;
-
-    for (
-      let index = 1;
-      index <
-      this.data.examples.length;
-      index += 1
-    ) {
-      if (
-        this.data.examples[index]
-          .createdAt <
-        this.data.examples[oldestIndex]
-          .createdAt
-      ) {
-        oldestIndex = index;
-      }
-    }
-
-    this.data.examples.splice(
-      oldestIndex,
-      1,
+    fs.renameSync(
+      temporaryPath,
+      this.filePath
     );
   }
 
-  private static normalize(
-    text: string,
-  ): string {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(
-        /[\u0300-\u036f]/g,
-        '',
-      )
-      .replace(
-        /[^\p{L}\p{N}\s]/gu,
-        ' ',
-      )
-      .replace(
-        /\s+/g,
-        ' ',
-      )
-      .trim();
-  }
-
-  private static isValidExample(
-    example: unknown,
-  ): example is SemanticFeedbackExample {
+  private static isValidFeedback(
+    value: unknown
+  ): value is SemanticFeedback {
     if (
-      !example ||
-      typeof example !== 'object'
+      !value ||
+      typeof value !== 'object'
     ) {
       return false;
     }
 
-    const value =
-      example as Record<
+    const item =
+      value as Record<
         string,
         unknown
       >;
 
     return (
-      typeof value.id === 'number' &&
-      typeof value.first ===
-        'string' &&
-      value.first.trim().length > 0 &&
-      typeof value.second ===
-        'string' &&
-      value.second.trim().length > 0 &&
-      (
-        value.label === 0 ||
-        value.label === 1
-      ) &&
-      typeof value.createdAt ===
+      typeof item.id ===
         'number' &&
+      Number.isInteger(
+        item.id
+      ) &&
+      item.id > 0 &&
+      typeof item.first ===
+        'string' &&
+      item.first.trim()
+        .length > 0 &&
+      typeof item.second ===
+        'string' &&
+      item.second.trim()
+        .length > 0 &&
       (
-        value.source === 'human' ||
-        value.source === 'system' ||
-        value.source === 'mined'
+        item.label === 0 ||
+        item.label === 1
+      ) &&
+      (
+        item.source ===
+          'human' ||
+        item.source ===
+          'automatic' ||
+        item.source ===
+          'hard-negative'
+      ) &&
+      typeof item.createdAt ===
+        'number' &&
+      Number.isFinite(
+        item.createdAt
       )
     );
   }
