@@ -16,8 +16,16 @@ const modelManager_1 = require("./intelligence/modelManager");
 const responseEngine_1 = require("./services/responseEngine");
 const memoryContext_1 = require("./services/memoryContext");
 const semanticMessageActiveLearningService_1 = require("./services/semanticMessageActiveLearningService");
+const autonomousAgentOrchestrator_1 = require("./intelligence/autonomousAgentOrchestrator");
+const safetyPermissionEngine_1 = require("./intelligence/safetyPermissionEngine");
+const toolRegistry_1 = require("./intelligence/toolRegistry");
+const observationEngine_1 = require("./intelligence/observationEngine");
 const EMOTION_DECAY_INTERVAL_MS = 5 * 60 * 1000;
 const AI_STATUS_INTERVAL_MS = 30 * 60 * 1000;
+const AUTONOMOUS_AGENT_INTERVAL_MS = 15 * 1000;
+const AUTONOMOUS_AGENT_STATUS_INTERVAL_MS = 5 * 60 * 1000;
+const autonomousAgentEnabled = process.env.AUTONOMOUS_AGENT_ENABLED ===
+    'true';
 const client = new discord_js_1.Client({
     intents: [
         discord_js_1.GatewayIntentBits.Guilds,
@@ -28,6 +36,9 @@ const client = new discord_js_1.Client({
 let scheduler;
 let emotionDecayInterval;
 let aiStatusInterval;
+let autonomousAgentInterval;
+let autonomousAgentStatusInterval;
+let autonomousAgent;
 client.once('ready', () => {
     console.log(`Bot conectado como ${client.user?.tag}`);
     memoryService_1.MemoryService.initialize();
@@ -40,6 +51,68 @@ client.once('ready', () => {
     }
     catch (error) {
         console.error('Erro ao inicializar o módulo de IA:', error);
+    }
+    /*
+     * O AutonomousAgentOrchestrator possui suas próprias
+     * barreiras de segurança, mas permanece completamente
+     * desligado em produção até AUTONOMOUS_AGENT_ENABLED
+     * ser explicitamente definido como "true".
+     */
+    try {
+        const toolRegistry = new toolRegistry_1.ToolRegistry();
+        const safetyPermissionEngine = new safetyPermissionEngine_1.SafetyPermissionEngine(toolRegistry);
+        const observationEngine = new observationEngine_1.ObservationEngine();
+        autonomousAgent =
+            new autonomousAgentOrchestrator_1.AutonomousAgentOrchestrator(safetyPermissionEngine, observationEngine, {
+                enabled: autonomousAgentEnabled,
+                minimumCycleIntervalMs: AUTONOMOUS_AGENT_INTERVAL_MS,
+                maximumCyclesPerWindow: 30,
+                cycleWindowMs: 60 * 60 * 1000,
+            });
+        console.log(`Agente autônomo ${autonomousAgentEnabled
+            ? 'habilitado'
+            : 'desabilitado'}.`);
+        if (autonomousAgentEnabled) {
+            autonomousAgentInterval =
+                setInterval(() => {
+                    if (!autonomousAgent) {
+                        return;
+                    }
+                    void autonomousAgent
+                        .tick()
+                        .then(result => {
+                        if (result.decision ===
+                            'executed' ||
+                            result.decision ===
+                                'blocked' ||
+                            result.decision ===
+                                'failed' ||
+                            result.decision ===
+                                'completed' ||
+                            result.decision ===
+                                'plan_created' ||
+                            result.decision ===
+                                'goal_created') {
+                            console.log('Ciclo autônomo:', result);
+                        }
+                    })
+                        .catch(error => {
+                        console.error('Erro no ciclo do agente autônomo:', error);
+                    });
+                }, AUTONOMOUS_AGENT_INTERVAL_MS);
+            autonomousAgentStatusInterval =
+                setInterval(() => {
+                    if (!autonomousAgent) {
+                        return;
+                    }
+                    console.log('Estado do agente autônomo:', autonomousAgent.getStatus());
+                }, AUTONOMOUS_AGENT_STATUS_INTERVAL_MS);
+        }
+    }
+    catch (error) {
+        autonomousAgent =
+            undefined;
+        console.error('Erro ao inicializar o agente autônomo:', error);
     }
     emotionDecayInterval =
         setInterval(() => {
@@ -82,13 +155,16 @@ client.on('messageCreate', async (message) => {
          * Para mensagens que não geram resposta direta,
          * verifica se há memória contextual relevante para
          * alimentar o Semantic Active Learning com pares contextuais.
+         *
          * Não adiciona automaticamente ao treinamento.
          */
         const trimmed = message.content.trim();
         if (!trimmed.startsWith('!')) {
             const relevantMemory = memoryContext_1.MemoryContextService.findRelevantMemory(message.author.id, trimmed);
-            if (relevantMemory && relevantMemory.summary) {
-                semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService.processInteraction(trimmed, relevantMemory.summary);
+            if (relevantMemory &&
+                relevantMemory.summary) {
+                semanticMessageActiveLearningService_1.SemanticMessageActiveLearningService
+                    .processInteraction(trimmed, relevantMemory.summary);
             }
         }
     }
@@ -106,6 +182,16 @@ const shutdown = (signal) => {
     if (aiStatusInterval) {
         clearInterval(aiStatusInterval);
         aiStatusInterval =
+            undefined;
+    }
+    if (autonomousAgentInterval) {
+        clearInterval(autonomousAgentInterval);
+        autonomousAgentInterval =
+            undefined;
+    }
+    if (autonomousAgentStatusInterval) {
+        clearInterval(autonomousAgentStatusInterval);
+        autonomousAgentStatusInterval =
             undefined;
     }
     scheduler?.stop();
@@ -139,6 +225,12 @@ async function main() {
         }
         if (aiStatusInterval) {
             clearInterval(aiStatusInterval);
+        }
+        if (autonomousAgentInterval) {
+            clearInterval(autonomousAgentInterval);
+        }
+        if (autonomousAgentStatusInterval) {
+            clearInterval(autonomousAgentStatusInterval);
         }
         memoryService_1.MemoryService.close();
         process.exit(1);
