@@ -40,7 +40,19 @@ class ModelPersistenceService {
             (0, node_fs_1.writeFileSync)(temporaryPath, content, {
                 encoding: 'utf-8',
             });
-            (0, node_fs_1.renameSync)(temporaryPath, this.filepath);
+            try {
+                (0, node_fs_1.renameSync)(temporaryPath, this.filepath);
+            }
+            catch {
+                // Fallback robusto para Windows quando renameSync falha por lock momentâneo
+                (0, node_fs_1.copyFileSync)(temporaryPath, this.filepath);
+                try {
+                    (0, node_fs_1.unlinkSync)(temporaryPath);
+                }
+                catch {
+                    // Ignora falha ao limpar arquivo temporário após cópia.
+                }
+            }
         }
         catch (error) {
             try {
@@ -56,14 +68,33 @@ class ModelPersistenceService {
         if (!this.exists()) {
             return null;
         }
+        let raw = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                raw = (0, node_fs_1.readFileSync)(this.filepath, 'utf-8');
+                break;
+            }
+            catch (err) {
+                const errorCode = err && typeof err === 'object' && 'code' in err
+                    ? err.code
+                    : null;
+                if (errorCode === 'EBUSY' && attempt < 4) {
+                    continue;
+                }
+                console.error(`Falha ao carregar modelos persistidos em ${this.filepath}:`, err);
+                return null;
+            }
+        }
+        if (!raw) {
+            return null;
+        }
         try {
-            const raw = (0, node_fs_1.readFileSync)(this.filepath, 'utf-8');
             const parsed = JSON.parse(raw);
             this.validate(parsed);
             return parsed;
         }
         catch (error) {
-            console.error(`Falha ao carregar modelos persistidos em ${this.filepath}:`, error);
+            console.error(`Falha ao validar modelos persistidos em ${this.filepath}:`, error);
             return null;
         }
     }

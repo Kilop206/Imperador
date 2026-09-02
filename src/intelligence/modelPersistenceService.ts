@@ -1,4 +1,5 @@
 import {
+  copyFileSync,
   mkdirSync,
   readFileSync,
   renameSync,
@@ -139,10 +140,26 @@ export class ModelPersistenceService {
         },
       );
 
-      renameSync(
-        temporaryPath,
-        this.filepath,
-      );
+      try {
+        renameSync(
+          temporaryPath,
+          this.filepath,
+        );
+      } catch {
+        // Fallback robusto para Windows quando renameSync falha por lock momentâneo
+        copyFileSync(
+          temporaryPath,
+          this.filepath,
+        );
+
+        try {
+          unlinkSync(
+            temporaryPath,
+          );
+        } catch {
+          // Ignora falha ao limpar arquivo temporário após cópia.
+        }
+      }
     } catch (error) {
       try {
         unlinkSync(
@@ -162,23 +179,44 @@ export class ModelPersistenceService {
       return null;
     }
 
-    try {
-      const raw =
-        readFileSync(
+    let raw: string | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        raw = readFileSync(
           this.filepath,
           'utf-8',
         );
+        break;
+      } catch (err: unknown) {
+        const errorCode =
+          err && typeof err === 'object' && 'code' in err
+            ? (err as { code: string }).code
+            : null;
 
-      const parsed:
-        unknown =
-        JSON.parse(raw);
+        if (errorCode === 'EBUSY' && attempt < 4) {
+          continue;
+        }
 
+        console.error(
+          `Falha ao carregar modelos persistidos em ${this.filepath}:`,
+          err,
+        );
+
+        return null;
+      }
+    }
+
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
       this.validate(parsed);
-
       return parsed;
     } catch (error) {
       console.error(
-        `Falha ao carregar modelos persistidos em ${this.filepath}:`,
+        `Falha ao validar modelos persistidos em ${this.filepath}:`,
         error,
       );
 
