@@ -8,13 +8,23 @@ import {
   SafetyRuntimeStatus,
 } from './safetyPermissionEngine';
 
+import {
+  AutonomousRuntimeAuditService,
+  AutonomousRuntimeAuditEvent,
+} from './autonomousRuntimeAuditService';
+
 export interface AutonomousRuntimeStatus {
   enabled: boolean;
+
   orchestrator:
     AutonomousAgentOrchestratorStatus;
+
   safety:
     SafetyRuntimeStatus;
+
   killSwitchEnabled: boolean;
+
+  auditEntries: number;
 }
 
 export class AutonomousRuntimeControlService {
@@ -24,11 +34,16 @@ export class AutonomousRuntimeControlService {
   private readonly safety:
     SafetyPermissionEngine;
 
+  private readonly audit:
+    AutonomousRuntimeAuditService;
+
   public constructor(
     orchestrator:
       AutonomousAgentOrchestrator,
     safety:
       SafetyPermissionEngine,
+    audit:
+      AutonomousRuntimeAuditService,
   ) {
     if (!orchestrator) {
       throw new TypeError(
@@ -42,36 +57,155 @@ export class AutonomousRuntimeControlService {
       );
     }
 
+    if (!audit) {
+      throw new TypeError(
+        'AutonomousRuntimeAuditService é obrigatório.',
+      );
+    }
+
     this.orchestrator =
       orchestrator;
 
     this.safety =
       safety;
+
+    this.audit =
+      audit;
+
+    this.audit.initialize();
   }
 
-  public enable(): void {
+  public enable(
+    actor?: string,
+  ): void {
     this.safety.enable();
+
     this.safety.disableKillSwitch();
+
     this.orchestrator.setEnabled(
       true,
     );
-  }
 
-  public disable(): void {
-    this.orchestrator.setEnabled(
-      false,
+    this.audit.record(
+      'runtime_enabled',
+      'runtime-control',
+      {
+        actor,
+        details: {
+          safetyEnabled:
+            true,
+          killSwitchEnabled:
+            false,
+          orchestratorEnabled:
+            true,
+        },
+      },
     );
   }
 
-  public enableKillSwitch(): void {
+  public disable(
+    actor?: string,
+  ): void {
+    this.orchestrator.setEnabled(
+      false,
+    );
+
+    this.audit.record(
+      'runtime_disabled',
+      'runtime-control',
+      {
+        actor,
+        details: {
+          safetyEnabled:
+            this.safety.getStatus()
+              .enabled,
+          killSwitchEnabled:
+            this.safety.isKillSwitchEnabled(),
+          orchestratorEnabled:
+            false,
+        },
+      },
+    );
+  }
+
+  public enableKillSwitch(
+    actor?: string,
+  ): void {
     this.safety.enableKillSwitch();
+
     this.orchestrator.setEnabled(
       false,
     );
+
+    this.audit.record(
+      'kill_switch_enabled',
+      'runtime-control',
+      {
+        actor,
+        details: {
+          killSwitchEnabled:
+            true,
+          orchestratorEnabled:
+            false,
+        },
+      },
+    );
   }
 
-  public disableKillSwitch(): void {
+  public disableKillSwitch(
+    actor?: string,
+  ): void {
     this.safety.disableKillSwitch();
+
+    this.audit.record(
+      'kill_switch_disabled',
+      'runtime-control',
+      {
+        actor,
+        details: {
+          killSwitchEnabled:
+            false,
+          orchestratorEnabled:
+            this.orchestrator.isEnabled(),
+        },
+      },
+    );
+  }
+
+  public markRuntimeStarted(
+    actor = 'system',
+  ): void {
+    this.audit.record(
+      'runtime_started',
+      'system',
+      {
+        actor,
+        details: {
+          orchestratorEnabled:
+            this.orchestrator.isEnabled(),
+          killSwitchEnabled:
+            this.safety.isKillSwitchEnabled(),
+        },
+      },
+    );
+  }
+
+  public markRuntimeShutdown(
+    actor = 'system',
+  ): void {
+    this.audit.record(
+      'runtime_shutdown',
+      'system',
+      {
+        actor,
+        details: {
+          orchestratorEnabled:
+            this.orchestrator.isEnabled(),
+          killSwitchEnabled:
+            this.safety.isKillSwitchEnabled(),
+        },
+      },
+    );
   }
 
   public isEnabled(): boolean {
@@ -84,9 +218,39 @@ export class AutonomousRuntimeControlService {
     return this.safety.isKillSwitchEnabled();
   }
 
-  public resetRuntimeState(): void {
+  public resetRuntimeState(
+    actor?: string,
+  ): void {
     this.orchestrator.resetRuntimeState();
+
     this.safety.resetRuntimeState();
+
+    this.audit.record(
+      'runtime_reset',
+      'runtime-control',
+      {
+        actor,
+        details: {
+          orchestratorReset:
+            true,
+          safetyReset:
+            true,
+        },
+      },
+    );
+  }
+
+  public getAuditEntries():
+    AutonomousRuntimeAuditEvent[] {
+    return this.audit.getAll();
+  }
+
+  public getRecentAuditEntries(
+    limit = 20,
+  ): AutonomousRuntimeAuditEvent[] {
+    return this.audit.getRecent(
+      limit,
+    );
   }
 
   public getStatus(
@@ -106,6 +270,9 @@ export class AutonomousRuntimeControlService {
 
       killSwitchEnabled:
         this.safety.isKillSwitchEnabled(),
+
+      auditEntries:
+        this.audit.getCount(),
     };
   }
 }

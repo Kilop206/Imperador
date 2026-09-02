@@ -26,13 +26,13 @@ interface CandidateData {
 const DATA_DIRECTORY =
   path.join(
     process.cwd(),
-    'data'
+    'data',
   );
 
 const DEFAULT_FILE_PATH =
   path.join(
     DATA_DIRECTORY,
-    'semantic_candidates.json'
+    'semantic_candidates.json',
   );
 
 const MAX_CANDIDATES = 1000;
@@ -41,7 +41,8 @@ export class SemanticCandidateService {
   private static filePath =
     DEFAULT_FILE_PATH;
 
-  private static data: CandidateData = {
+  private static data:
+    CandidateData = {
     version: 1,
     nextId: 1,
     candidates: [],
@@ -51,21 +52,28 @@ export class SemanticCandidateService {
     false;
 
   static initialize(
-    filePath = DEFAULT_FILE_PATH
+    filePath = DEFAULT_FILE_PATH,
   ): void {
-    this.filePath = filePath;
+    this.filePath =
+      filePath;
 
-    if (this.initialized) {
+    if (
+      this.initialized
+    ) {
       return;
     }
 
-    this.data = this.load();
+    this.data =
+      this.load();
 
-    this.initialized = true;
+    this.initialized =
+      true;
   }
 
   static ensureInitialized(): void {
-    if (!this.initialized) {
+    if (
+      !this.initialized
+    ) {
       this.initialize();
     }
   }
@@ -74,7 +82,7 @@ export class SemanticCandidateService {
     first: string,
     second: string,
     predictedScore: number,
-    reason: SemanticCandidateReason
+    reason: SemanticCandidateReason,
   ): SemanticCandidate | null {
     this.ensureInitialized();
 
@@ -93,10 +101,10 @@ export class SemanticCandidateService {
 
     if (
       this.normalizeText(
-        normalizedFirst
+        normalizedFirst,
       ) ===
       this.normalizeText(
-        normalizedSecond
+        normalizedSecond,
       )
     ) {
       return null;
@@ -104,7 +112,7 @@ export class SemanticCandidateService {
 
     if (
       !Number.isFinite(
-        predictedScore
+        predictedScore,
       )
     ) {
       return null;
@@ -124,14 +132,14 @@ export class SemanticCandidateService {
         0,
         Math.min(
           1,
-          predictedScore
-        )
+          predictedScore,
+        ),
       );
 
     const pairKey =
       this.normalizePair(
         normalizedFirst,
-        normalizedSecond
+        normalizedSecond,
       );
 
     const alreadyPending =
@@ -140,11 +148,13 @@ export class SemanticCandidateService {
           !candidate.reviewed &&
           this.normalizePair(
             candidate.first,
-            candidate.second
-          ) === pairKey
+            candidate.second,
+          ) === pairKey,
       );
 
-    if (alreadyPending) {
+    if (
+      alreadyPending
+    ) {
       return null;
     }
 
@@ -162,7 +172,8 @@ export class SemanticCandidateService {
       }
     }
 
-    const candidate: SemanticCandidate = {
+    const candidate:
+      SemanticCandidate = {
       id:
         this.data.nextId++,
       first:
@@ -174,11 +185,12 @@ export class SemanticCandidateService {
       reason,
       createdAt:
         Date.now(),
-      reviewed: false,
+      reviewed:
+        false,
     };
 
     this.data.candidates.push(
-      candidate
+      candidate,
     );
 
     this.save();
@@ -189,23 +201,28 @@ export class SemanticCandidateService {
   }
 
   static getPending(
-    limit = 20
+    limit = 20,
   ): SemanticCandidate[] {
     this.ensureInitialized();
 
     const safeLimit =
       Math.max(
         1,
-        Math.floor(limit)
+        Math.floor(
+          limit,
+        ),
       );
 
     return this.data.candidates
       .filter(
         candidate =>
-          !candidate.reviewed
+          !candidate.reviewed,
       )
       .sort(
-        (a, b) => {
+        (
+          a,
+          b,
+        ) => {
           if (
             b.predictedScore !==
             a.predictedScore
@@ -213,11 +230,11 @@ export class SemanticCandidateService {
             return (
               Math.abs(
                 0.5 -
-                a.predictedScore
+                a.predictedScore,
               ) -
               Math.abs(
                 0.5 -
-                b.predictedScore
+                b.predictedScore,
               )
             );
           }
@@ -226,32 +243,36 @@ export class SemanticCandidateService {
             b.createdAt -
             a.createdAt
           );
-        }
+        },
       )
       .slice(
         0,
-        safeLimit
+        safeLimit,
       )
-      .map(candidate => ({
-        ...candidate,
-      }));
+      .map(
+        candidate => ({
+          ...candidate,
+        }),
+      );
   }
 
   static getById(
-    id: number
+    id: number,
   ): SemanticCandidate | null {
     this.ensureInitialized();
 
     return (
       this.data.candidates.find(
         candidate =>
-          candidate.id === id
-      ) ?? null
+          candidate.id ===
+          id,
+      ) ??
+      null
     );
   }
 
   static getByReason(
-    reason: SemanticCandidateReason
+    reason: SemanticCandidateReason,
   ): SemanticCandidate[] {
     this.ensureInitialized();
 
@@ -259,29 +280,34 @@ export class SemanticCandidateService {
       .filter(
         candidate =>
           candidate.reason ===
-          reason
+          reason,
       )
-      .map(candidate => ({
-        ...candidate,
-      }));
+      .map(
+        candidate => ({
+          ...candidate,
+        }),
+      );
   }
 
   static markReviewed(
-    id: number
+    id: number,
   ): boolean {
     this.ensureInitialized();
 
     const candidate =
       this.data.candidates.find(
         item =>
-          item.id === id
+          item.id ===
+          id,
       );
 
     if (!candidate) {
       return false;
     }
 
-    if (candidate.reviewed) {
+    if (
+      candidate.reviewed
+    ) {
       return false;
     }
 
@@ -294,23 +320,26 @@ export class SemanticCandidateService {
   }
 
   static remove(
-    id: number
+    id: number,
   ): boolean {
     this.ensureInitialized();
 
     const index =
       this.data.candidates.findIndex(
         candidate =>
-          candidate.id === id
+          candidate.id ===
+          id,
       );
 
-    if (index < 0) {
+    if (
+      index < 0
+    ) {
       return false;
     }
 
     this.data.candidates.splice(
       index,
-      1
+      1,
     );
 
     this.save();
@@ -327,14 +356,16 @@ export class SemanticCandidateService {
     this.data.candidates =
       this.data.candidates.filter(
         candidate =>
-          !candidate.reviewed
+          !candidate.reviewed,
       );
 
     const removed =
       before -
       this.data.candidates.length;
 
-    if (removed > 0) {
+    if (
+      removed > 0
+    ) {
       this.save();
     }
 
@@ -347,11 +378,14 @@ export class SemanticCandidateService {
     const count =
       this.data.candidates.length;
 
-    if (count === 0) {
+    if (
+      count === 0
+    ) {
       return 0;
     }
 
-    this.data.candidates = [];
+    this.data.candidates =
+      [];
 
     this.save();
 
@@ -363,7 +397,7 @@ export class SemanticCandidateService {
 
     return this.data.candidates.filter(
       candidate =>
-        !candidate.reviewed
+        !candidate.reviewed,
     ).length;
   }
 
@@ -375,22 +409,22 @@ export class SemanticCandidateService {
 
   static hasPair(
     first: string,
-    second: string
+    second: string,
   ): boolean {
     this.ensureInitialized();
 
     const pairKey =
       this.normalizePair(
         first,
-        second
+        second,
       );
 
     return this.data.candidates.some(
       candidate =>
         this.normalizePair(
           candidate.first,
-          candidate.second
-        ) === pairKey
+          candidate.second,
+        ) === pairKey,
     );
   }
 
@@ -410,33 +444,37 @@ export class SemanticCandidateService {
 
   private static normalizePair(
     first: string,
-    second: string
+    second: string,
   ): string {
     return [
-      this.normalizeText(first),
-      this.normalizeText(second),
+      this.normalizeText(
+        first,
+      ),
+      this.normalizeText(
+        second,
+      ),
     ]
       .sort()
       .join('\u0000');
   }
 
   private static normalizeText(
-    text: string
+    text: string,
   ): string {
     return text
       .toLowerCase()
       .normalize('NFD')
       .replace(
         /[\u0300-\u036f]/g,
-        ''
+        '',
       )
       .replace(
         /[^\p{L}\p{N}\s]/gu,
-        ' '
+        ' ',
       )
       .replace(
         /\s+/g,
-        ' '
+        ' ',
       )
       .trim();
   }
@@ -445,13 +483,15 @@ export class SemanticCandidateService {
     const index =
       this.data.candidates.findIndex(
         candidate =>
-          candidate.reviewed
+          candidate.reviewed,
       );
 
-    if (index >= 0) {
+    if (
+      index >= 0
+    ) {
       this.data.candidates.splice(
         index,
-        1
+        1,
       );
     }
   }
@@ -461,7 +501,7 @@ export class SemanticCandidateService {
     try {
       if (
         !fs.existsSync(
-          this.filePath
+          this.filePath,
         )
       ) {
         return {
@@ -474,24 +514,25 @@ export class SemanticCandidateService {
       const raw =
         fs.readFileSync(
           this.filePath,
-          'utf-8'
+          'utf-8',
         );
 
       const parsed =
         JSON.parse(
-          raw
+          raw,
         ) as Partial<CandidateData>;
 
       if (
-        parsed.version !== 1 ||
+        parsed.version !==
+          1 ||
         !Array.isArray(
-          parsed.candidates
+          parsed.candidates,
         ) ||
         typeof parsed.nextId !==
           'number'
       ) {
         throw new Error(
-          'Arquivo de candidatos semânticos inválido.'
+          'Arquivo de candidatos semânticos inválido.',
         );
       }
 
@@ -499,18 +540,21 @@ export class SemanticCandidateService {
         parsed.candidates.filter(
           candidate =>
             this.isValidCandidate(
-              candidate
-            )
+              candidate,
+            ),
         );
 
       const highestId =
         candidates.reduce(
-          (max, candidate) =>
+          (
+            max,
+            candidate,
+          ) =>
             Math.max(
               max,
-              candidate.id
+              candidate.id,
             ),
-          0
+          0,
         );
 
       return {
@@ -519,9 +563,9 @@ export class SemanticCandidateService {
           Math.max(
             1,
             Math.floor(
-              parsed.nextId
+              parsed.nextId,
             ),
-            highestId + 1
+            highestId + 1,
           ),
         candidates,
       };
@@ -531,7 +575,7 @@ export class SemanticCandidateService {
           error instanceof Error
             ? error.message
             : String(error)
-        }`
+        }`,
       );
     }
   }
@@ -539,38 +583,73 @@ export class SemanticCandidateService {
   private static save(): void {
     fs.mkdirSync(
       path.dirname(
-        this.filePath
+        this.filePath,
       ),
       {
-        recursive: true,
-      }
+        recursive:
+          true,
+      },
     );
 
+    /*
+     * O arquivo temporário precisa ser único.
+     *
+     * No Windows, usar sempre ".tmp" pode provocar
+     * colisões entre gravações concorrentes ou testes
+     * paralelos e resultar em EPERM durante rename().
+     */
     const temporaryPath =
-      `${this.filePath}.tmp`;
+      `${this.filePath}.tmp-${process.pid}-${Date.now()}-${Math.floor(
+        Math.random() * 1_000_000,
+      )}`;
 
-    fs.writeFileSync(
-      temporaryPath,
-      JSON.stringify(
-        this.data,
-        null,
-        2
-      ),
-      'utf-8'
-    );
+    try {
+      fs.writeFileSync(
+        temporaryPath,
+        JSON.stringify(
+          this.data,
+          null,
+          2,
+        ),
+        'utf-8',
+      );
 
-    fs.renameSync(
-      temporaryPath,
-      this.filePath
-    );
+      fs.renameSync(
+        temporaryPath,
+        this.filePath,
+      );
+    } catch (error) {
+      try {
+        if (
+          fs.existsSync(
+            temporaryPath,
+          )
+        ) {
+          fs.unlinkSync(
+            temporaryPath,
+          );
+        }
+      } catch {
+        // Ignora erro de limpeza.
+      }
+
+      throw new Error(
+        `Não foi possível salvar candidatos semânticos: ${
+          error instanceof Error
+            ? error.message
+            : String(error)
+        }`,
+      );
+    }
   }
 
   private static isValidCandidate(
-    value: unknown
+    value: unknown,
   ): value is SemanticCandidate {
     if (
       !value ||
-      typeof value !== 'object'
+      typeof value !==
+        'object'
     ) {
       return false;
     }
@@ -585,7 +664,7 @@ export class SemanticCandidateService {
       typeof item.id ===
         'number' &&
       Number.isInteger(
-        item.id
+        item.id,
       ) &&
       item.id > 0 &&
       typeof item.first ===
@@ -599,7 +678,7 @@ export class SemanticCandidateService {
       typeof item.predictedScore ===
         'number' &&
       Number.isFinite(
-        item.predictedScore
+        item.predictedScore,
       ) &&
       (
         item.reason ===
@@ -614,7 +693,7 @@ export class SemanticCandidateService {
       typeof item.createdAt ===
         'number' &&
       Number.isFinite(
-        item.createdAt
+        item.createdAt,
       ) &&
       typeof item.reviewed ===
         'boolean'

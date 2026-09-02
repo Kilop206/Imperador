@@ -41,12 +41,15 @@ const DEFAULT_FILE_PATH = path.join(DATA_DIRECTORY, 'semantic_candidates.json');
 const MAX_CANDIDATES = 1000;
 class SemanticCandidateService {
     static initialize(filePath = DEFAULT_FILE_PATH) {
-        this.filePath = filePath;
+        this.filePath =
+            filePath;
         if (this.initialized) {
             return;
         }
-        this.data = this.load();
-        this.initialized = true;
+        this.data =
+            this.load();
+        this.initialized =
+            true;
     }
     static ensureInitialized() {
         if (!this.initialized) {
@@ -127,7 +130,9 @@ class SemanticCandidateService {
     }
     static getById(id) {
         this.ensureInitialized();
-        return (this.data.candidates.find(candidate => candidate.id === id) ?? null);
+        return (this.data.candidates.find(candidate => candidate.id ===
+            id) ??
+            null);
     }
     static getByReason(reason) {
         this.ensureInitialized();
@@ -140,7 +145,8 @@ class SemanticCandidateService {
     }
     static markReviewed(id) {
         this.ensureInitialized();
-        const candidate = this.data.candidates.find(item => item.id === id);
+        const candidate = this.data.candidates.find(item => item.id ===
+            id);
         if (!candidate) {
             return false;
         }
@@ -154,7 +160,8 @@ class SemanticCandidateService {
     }
     static remove(id) {
         this.ensureInitialized();
-        const index = this.data.candidates.findIndex(candidate => candidate.id === id);
+        const index = this.data.candidates.findIndex(candidate => candidate.id ===
+            id);
         if (index < 0) {
             return false;
         }
@@ -180,7 +187,8 @@ class SemanticCandidateService {
         if (count === 0) {
             return 0;
         }
-        this.data.candidates = [];
+        this.data.candidates =
+            [];
         this.save();
         return count;
     }
@@ -242,7 +250,8 @@ class SemanticCandidateService {
             }
             const raw = fs.readFileSync(this.filePath, 'utf-8');
             const parsed = JSON.parse(raw);
-            if (parsed.version !== 1 ||
+            if (parsed.version !==
+                1 ||
                 !Array.isArray(parsed.candidates) ||
                 typeof parsed.nextId !==
                     'number') {
@@ -266,13 +275,36 @@ class SemanticCandidateService {
         fs.mkdirSync(path.dirname(this.filePath), {
             recursive: true,
         });
-        const temporaryPath = `${this.filePath}.tmp`;
-        fs.writeFileSync(temporaryPath, JSON.stringify(this.data, null, 2), 'utf-8');
-        fs.renameSync(temporaryPath, this.filePath);
+        /*
+         * O arquivo temporário precisa ser único.
+         *
+         * No Windows, usar sempre ".tmp" pode provocar
+         * colisões entre gravações concorrentes ou testes
+         * paralelos e resultar em EPERM durante rename().
+         */
+        const temporaryPath = `${this.filePath}.tmp-${process.pid}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+        try {
+            fs.writeFileSync(temporaryPath, JSON.stringify(this.data, null, 2), 'utf-8');
+            fs.renameSync(temporaryPath, this.filePath);
+        }
+        catch (error) {
+            try {
+                if (fs.existsSync(temporaryPath)) {
+                    fs.unlinkSync(temporaryPath);
+                }
+            }
+            catch {
+                // Ignora erro de limpeza.
+            }
+            throw new Error(`Não foi possível salvar candidatos semânticos: ${error instanceof Error
+                ? error.message
+                : String(error)}`);
+        }
     }
     static isValidCandidate(value) {
         if (!value ||
-            typeof value !== 'object') {
+            typeof value !==
+                'object') {
             return false;
         }
         const item = value;

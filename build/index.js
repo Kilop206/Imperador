@@ -22,6 +22,7 @@ const toolRegistry_1 = require("./intelligence/toolRegistry");
 const observationEngine_1 = require("./intelligence/observationEngine");
 const autonomousToolCatalog_1 = require("./intelligence/autonomousToolCatalog");
 const autonomousRuntimeControlService_1 = require("./intelligence/autonomousRuntimeControlService");
+const autonomousRuntimeAuditService_1 = require("./intelligence/autonomousRuntimeAuditService");
 const EMOTION_DECAY_INTERVAL_MS = 5 * 60 * 1000;
 const AI_STATUS_INTERVAL_MS = 30 * 60 * 1000;
 const AUTONOMOUS_AGENT_INTERVAL_MS = 15 * 1000;
@@ -55,6 +56,12 @@ client.once('ready', () => {
     catch (error) {
         console.error('Erro ao inicializar o módulo de IA:', error);
     }
+    /*
+     * Inicialização do runtime autônomo.
+     *
+     * O agente permanece desligado por padrão,
+     * a menos que AUTONOMOUS_AGENT_ENABLED=true.
+     */
     try {
         const toolRegistry = new toolRegistry_1.ToolRegistry();
         const safetyPermissionEngine = new safetyPermissionEngine_1.SafetyPermissionEngine(toolRegistry);
@@ -70,8 +77,10 @@ client.once('ready', () => {
                 maximumCyclesPerWindow: 30,
                 cycleWindowMs: 60 * 60 * 1000,
             });
+        const auditService = new autonomousRuntimeAuditService_1.AutonomousRuntimeAuditService();
         autonomousRuntimeControl =
-            new autonomousRuntimeControlService_1.AutonomousRuntimeControlService(autonomousAgent, safetyPermissionEngine);
+            new autonomousRuntimeControlService_1.AutonomousRuntimeControlService(autonomousAgent, safetyPermissionEngine, auditService);
+        autonomousRuntimeControl.markRuntimeStarted();
         console.log(`Agente autônomo ${autonomousAgentEnabled
             ? 'habilitado'
             : 'desabilitado'}.`);
@@ -144,11 +153,6 @@ client.on('messageCreate', async (message) => {
     }
     /*
      * Controle administrativo do agente autônomo.
-     *
-     * Os comandos são tratados antes dos sistemas
-     * de memória/emoção para evitar que operações
-     * administrativas contaminem os dados
-     * conversacionais.
      */
     if (message.content
         .trim()
@@ -168,6 +172,7 @@ client.on('messageCreate', async (message) => {
             .split(/\s+/)[1]
             ?.toLowerCase() ??
             'status';
+        const actor = message.author.id;
         switch (command) {
             case 'status': {
                 const status = autonomousRuntimeControl.getStatus();
@@ -187,28 +192,29 @@ client.on('messageCreate', async (message) => {
                     `Planos ativos: ${status.orchestrator.activePlanCount}`,
                     `Execuções de ferramentas na janela: ${status.safety.executionsInWindow}`,
                     `Orçamento utilizado: ${status.safety.budgetUsedInWindow}`,
-                    `Auditoria: ${status.safety.auditEntries} registros`,
+                    `Auditoria de segurança: ${status.safety.auditEntries} registros`,
+                    `Auditoria de runtime: ${status.auditEntries} registros`,
                     `Última decisão: ${status.orchestrator.lastDecision}`,
                 ].join('\n'));
                 return;
             }
             case 'on': {
-                autonomousRuntimeControl.enable();
+                autonomousRuntimeControl.enable(actor);
                 await message.reply('Agente autônomo habilitado.');
                 return;
             }
             case 'off': {
-                autonomousRuntimeControl.disable();
+                autonomousRuntimeControl.disable(actor);
                 await message.reply('Agente autônomo desabilitado.');
                 return;
             }
             case 'kill': {
-                autonomousRuntimeControl.enableKillSwitch();
+                autonomousRuntimeControl.enableKillSwitch(actor);
                 await message.reply('Kill switch ativado. O agente autônomo foi imediatamente desabilitado.');
                 return;
             }
             case 'unkill': {
-                autonomousRuntimeControl.disableKillSwitch();
+                autonomousRuntimeControl.disableKillSwitch(actor);
                 await message.reply('Kill switch desativado. O agente permanece desligado até ser habilitado explicitamente.');
                 return;
             }
@@ -263,7 +269,8 @@ client.on('error', error => {
 const shutdown = (signal) => {
     console.log(`Recebido ${signal}, desligando bot...`);
     if (autonomousRuntimeControl) {
-        autonomousRuntimeControl.disable();
+        autonomousRuntimeControl.markRuntimeShutdown();
+        autonomousRuntimeControl.disable('system');
     }
     if (emotionDecayInterval) {
         clearInterval(emotionDecayInterval);

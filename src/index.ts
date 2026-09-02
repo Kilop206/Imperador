@@ -89,6 +89,10 @@ import {
   AutonomousRuntimeControlService,
 } from './intelligence/autonomousRuntimeControlService';
 
+import {
+  AutonomousRuntimeAuditService,
+} from './intelligence/autonomousRuntimeAuditService';
+
 const EMOTION_DECAY_INTERVAL_MS =
   5 * 60 * 1000;
 
@@ -171,6 +175,12 @@ client.once('ready', () => {
     );
   }
 
+  /*
+   * Inicialização do runtime autônomo.
+   *
+   * O agente permanece desligado por padrão,
+   * a menos que AUTONOMOUS_AGENT_ENABLED=true.
+   */
   try {
     const toolRegistry =
       new ToolRegistry();
@@ -209,11 +219,17 @@ client.once('ready', () => {
         },
       );
 
+    const auditService =
+      new AutonomousRuntimeAuditService();
+
     autonomousRuntimeControl =
       new AutonomousRuntimeControlService(
         autonomousAgent,
         safetyPermissionEngine,
+        auditService,
       );
+
+    autonomousRuntimeControl.markRuntimeStarted();
 
     console.log(
       `Agente autônomo ${
@@ -349,11 +365,6 @@ client.on(
 
     /*
      * Controle administrativo do agente autônomo.
-     *
-     * Os comandos são tratados antes dos sistemas
-     * de memória/emoção para evitar que operações
-     * administrativas contaminem os dados
-     * conversacionais.
      */
     if (
       message.content
@@ -391,6 +402,9 @@ client.on(
           ?.toLowerCase() ??
         'status';
 
+      const actor =
+        message.author.id;
+
       switch (command) {
         case 'status': {
           const status =
@@ -419,7 +433,8 @@ client.on(
               `Planos ativos: ${status.orchestrator.activePlanCount}`,
               `Execuções de ferramentas na janela: ${status.safety.executionsInWindow}`,
               `Orçamento utilizado: ${status.safety.budgetUsedInWindow}`,
-              `Auditoria: ${status.safety.auditEntries} registros`,
+              `Auditoria de segurança: ${status.safety.auditEntries} registros`,
+              `Auditoria de runtime: ${status.auditEntries} registros`,
               `Última decisão: ${status.orchestrator.lastDecision}`,
             ].join('\n'),
           );
@@ -428,7 +443,9 @@ client.on(
         }
 
         case 'on': {
-          autonomousRuntimeControl.enable();
+          autonomousRuntimeControl.enable(
+            actor,
+          );
 
           await message.reply(
             'Agente autônomo habilitado.',
@@ -438,7 +455,9 @@ client.on(
         }
 
         case 'off': {
-          autonomousRuntimeControl.disable();
+          autonomousRuntimeControl.disable(
+            actor,
+          );
 
           await message.reply(
             'Agente autônomo desabilitado.',
@@ -448,7 +467,9 @@ client.on(
         }
 
         case 'kill': {
-          autonomousRuntimeControl.enableKillSwitch();
+          autonomousRuntimeControl.enableKillSwitch(
+            actor,
+          );
 
           await message.reply(
             'Kill switch ativado. O agente autônomo foi imediatamente desabilitado.',
@@ -458,7 +479,9 @@ client.on(
         }
 
         case 'unkill': {
-          autonomousRuntimeControl.disableKillSwitch();
+          autonomousRuntimeControl.disableKillSwitch(
+            actor,
+          );
 
           await message.reply(
             'Kill switch desativado. O agente permanece desligado até ser habilitado explicitamente.',
@@ -573,7 +596,10 @@ const shutdown = (
   if (
     autonomousRuntimeControl
   ) {
-    autonomousRuntimeControl.disable();
+    autonomousRuntimeControl.markRuntimeShutdown();
+    autonomousRuntimeControl.disable(
+      'system',
+    );
   }
 
   if (

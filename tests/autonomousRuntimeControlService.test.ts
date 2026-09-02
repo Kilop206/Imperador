@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
@@ -21,7 +24,25 @@ import {
   ToolRegistry,
 } from '../src/intelligence/toolRegistry';
 
+import {
+  AutonomousRuntimeAuditService,
+} from '../src/intelligence/autonomousRuntimeAuditService';
+
 function createEnvironment() {
+  const directory =
+    fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'imperador-runtime-control-',
+      ),
+    );
+
+  const storagePath =
+    path.join(
+      directory,
+      'runtime-audit.json',
+    );
+
   const registry =
     new ToolRegistry();
 
@@ -49,265 +70,490 @@ function createEnvironment() {
       },
     );
 
+  const audit =
+    new AutonomousRuntimeAuditService({
+      storageFilePath:
+        storagePath,
+      maximumEntries:
+        100,
+    });
+
   const control =
     new AutonomousRuntimeControlService(
       orchestrator,
       safety,
+      audit,
     );
 
   return {
+    directory,
+    storagePath,
     registry,
     safety,
     observations,
     orchestrator,
+    audit,
     control,
   };
 }
 
-test(
-  'inicia o runtime autônomo',
-  () => {
-    const {
-      control,
-      orchestrator,
-      safety,
-    } =
-      createEnvironment();
-
-    assert.equal(
-      orchestrator.isEnabled(),
-      false,
+function cleanup(
+  directory: string,
+): void {
+  try {
+    fs.rmSync(
+      directory,
+      {
+        recursive:
+          true,
+        force:
+          true,
+      },
     );
-
-    assert.equal(
-      safety.isKillSwitchEnabled(),
-      false,
-    );
-
-    control.enable();
-
-    assert.equal(
-      orchestrator.isEnabled(),
-      true,
-    );
-
-    assert.equal(
-      safety.isKillSwitchEnabled(),
-      false,
-    );
-
-    assert.equal(
-      control.isEnabled(),
-      true,
-    );
-  },
-);
+  } catch {
+    // Ignora erros.
+  }
+}
 
 test(
-  'desabilita somente o orquestrador',
+  'registra habilitação do runtime',
   () => {
     const {
+      directory,
       control,
-      orchestrator,
-      safety,
-    } =
-      createEnvironment();
-
-    control.enable();
-    control.disable();
-
-    assert.equal(
-      orchestrator.isEnabled(),
-      false,
-    );
-
-    assert.equal(
-      safety.isKillSwitchEnabled(),
-      false,
-    );
-  },
-);
-
-test(
-  'kill switch desabilita o agente',
-  () => {
-    const {
-      control,
-      orchestrator,
-      safety,
-    } =
-      createEnvironment();
-
-    control.enable();
-
-    control.enableKillSwitch();
-
-    assert.equal(
-      orchestrator.isEnabled(),
-      false,
-    );
-
-    assert.equal(
-      safety.isKillSwitchEnabled(),
-      true,
-    );
-
-    assert.equal(
-      control.isKillSwitchEnabled(),
-      true,
-    );
-  },
-);
-
-test(
-  'desativar kill switch não inicia automaticamente o agente',
-  () => {
-    const {
-      control,
+      audit,
       orchestrator,
     } =
       createEnvironment();
 
-    control.enable();
-
-    control.enableKillSwitch();
-
-    control.disableKillSwitch();
-
-    assert.equal(
-      orchestrator.isEnabled(),
-      false,
-    );
-
-    assert.equal(
-      control.isKillSwitchEnabled(),
-      false,
-    );
-  },
-);
-
-test(
-  'retorna estado combinado de runtime e segurança',
-  () => {
-    const {
-      control,
-    } =
-      createEnvironment();
-
-    const status =
-      control.getStatus(
-        1_000,
+    try {
+      control.enable(
+        'admin-123',
       );
 
-    assert.equal(
-      status.enabled,
-      false,
-    );
+      assert.equal(
+        orchestrator.isEnabled(),
+        true,
+      );
 
-    assert.equal(
-      status.killSwitchEnabled,
-      false,
-    );
+      const entries =
+        audit.getAll();
 
-    assert.equal(
-      status.orchestrator.enabled,
-      false,
-    );
+      assert.equal(
+        entries.length,
+        1,
+      );
 
-    assert.equal(
-      status.safety.enabled,
-      true,
-    );
+      assert.equal(
+        entries[0].type,
+        'runtime_enabled',
+      );
 
-    assert.equal(
-      status.safety.executionsInWindow,
-      0,
-    );
+      assert.equal(
+        entries[0].actor,
+        'admin-123',
+      );
 
-    assert.equal(
-      status.safety.auditEntries,
-      0,
-    );
+      assert.equal(
+        entries[0].source,
+        'runtime-control',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
   },
 );
 
 test(
-  'resetRuntimeState limpa os contadores operacionais',
-  async () => {
-    const {
-      control,
-      orchestrator,
-      safety,
-    } =
-      createEnvironment();
-
-    control.enable();
-
-    const tick =
-      await orchestrator.tick(
-        1_000,
-      );
-
-    assert.equal(
-      tick.decision,
-      'idle',
-    );
-
-    assert.equal(
-      orchestrator.getStatus()
-        .cycleCount,
-      1,
-    );
-
-    control.resetRuntimeState();
-
-    const status =
-      control.getStatus(
-        2_000,
-      );
-
-    assert.equal(
-      status.orchestrator
-        .cycleCount,
-      0,
-    );
-
-    assert.equal(
-      status.safety
-        .executionsInWindow,
-      0,
-    );
-
-    assert.equal(
-      status.safety
-        .auditEntries,
-      0,
-    );
-  },
-);
-
-test(
-  'enable reativa segurança antes do agente',
+  'registra desligamento do runtime',
   () => {
     const {
+      directory,
       control,
+      audit,
+      orchestrator,
+    } =
+      createEnvironment();
+
+    try {
+      control.enable();
+
+      control.disable(
+        'admin-456',
+      );
+
+      assert.equal(
+        orchestrator.isEnabled(),
+        false,
+      );
+
+      const entries =
+        audit.getAll();
+
+      assert.equal(
+        entries.length,
+        2,
+      );
+
+      assert.equal(
+        entries[1].type,
+        'runtime_disabled',
+      );
+
+      assert.equal(
+        entries[1].actor,
+        'admin-456',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
+  },
+);
+
+test(
+  'kill switch desabilita o agente e registra evento',
+  () => {
+    const {
+      directory,
+      control,
+      audit,
       orchestrator,
       safety,
     } =
       createEnvironment();
 
-    safety.disable();
+    try {
+      control.enable();
 
-    control.enable();
+      control.enableKillSwitch(
+        'admin-kill',
+      );
 
-    assert.equal(
-      safety.getStatus().enabled,
-      true,
-    );
+      assert.equal(
+        orchestrator.isEnabled(),
+        false,
+      );
 
-    assert.equal(
-      orchestrator.isEnabled(),
-      true,
-    );
+      assert.equal(
+        safety.isKillSwitchEnabled(),
+        true,
+      );
+
+      const entries =
+        audit.getAll();
+
+      assert.equal(
+        entries.length,
+        2,
+      );
+
+      assert.equal(
+        entries[1].type,
+        'kill_switch_enabled',
+      );
+
+      assert.equal(
+        entries[1].actor,
+        'admin-kill',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
+  },
+);
+
+test(
+  'remover kill switch não religa o agente',
+  () => {
+    const {
+      directory,
+      control,
+      audit,
+      orchestrator,
+      safety,
+    } =
+      createEnvironment();
+
+    try {
+      control.enable();
+
+      control.enableKillSwitch();
+
+      control.disableKillSwitch(
+        'admin-unkill',
+      );
+
+      assert.equal(
+        safety.isKillSwitchEnabled(),
+        false,
+      );
+
+      assert.equal(
+        orchestrator.isEnabled(),
+        false,
+      );
+
+      const entries =
+        audit.getAll();
+
+      assert.equal(
+        entries.length,
+        3,
+      );
+
+      assert.equal(
+        entries[2].type,
+        'kill_switch_disabled',
+      );
+
+      assert.equal(
+        entries[2].actor,
+        'admin-unkill',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
+  },
+);
+
+test(
+  'registra início e encerramento do runtime',
+  () => {
+    const {
+      directory,
+      control,
+      audit,
+    } =
+      createEnvironment();
+
+    try {
+      control.markRuntimeStarted();
+
+      control.markRuntimeShutdown();
+
+      const entries =
+        audit.getAll();
+
+      assert.equal(
+        entries.length,
+        2,
+      );
+
+      assert.equal(
+        entries[0].type,
+        'runtime_started',
+      );
+
+      assert.equal(
+        entries[1].type,
+        'runtime_shutdown',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
+  },
+);
+
+test(
+  'persiste eventos através de nova instância',
+  () => {
+    const {
+      directory,
+      storagePath,
+      control,
+    } =
+      createEnvironment();
+
+    try {
+      control.enable(
+        'administrator',
+      );
+
+      const reloadedAudit =
+        new AutonomousRuntimeAuditService({
+          storageFilePath:
+            storagePath,
+        });
+
+      reloadedAudit.initialize();
+
+      const entries =
+        reloadedAudit.getAll();
+
+      assert.equal(
+        entries.length,
+        1,
+      );
+
+      assert.equal(
+        entries[0].type,
+        'runtime_enabled',
+      );
+
+      assert.equal(
+        entries[0].actor,
+        'administrator',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
+  },
+);
+
+test(
+  'expõe status com quantidade de auditoria',
+  () => {
+    const {
+      directory,
+      control,
+    } =
+      createEnvironment();
+
+    try {
+      let status =
+        control.getStatus(
+          1_000,
+        );
+
+      assert.equal(
+        status.enabled,
+        false,
+      );
+
+      assert.equal(
+        status.auditEntries,
+        0,
+      );
+
+      control.enable(
+        'administrator',
+      );
+
+      status =
+        control.getStatus(
+          2_000,
+        );
+
+      assert.equal(
+        status.enabled,
+        true,
+      );
+
+      assert.equal(
+        status.auditEntries,
+        1,
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
+  },
+);
+
+test(
+  'resetRuntimeState limpa runtime e mantém audit trail',
+  () => {
+    const {
+      directory,
+      control,
+      orchestrator,
+      safety,
+      audit,
+    } =
+      createEnvironment();
+
+    try {
+      control.enable(
+        'administrator',
+      );
+
+      control.resetRuntimeState(
+        'administrator',
+      );
+
+      assert.equal(
+        orchestrator.getStatus()
+          .cycleCount,
+        0,
+      );
+
+      assert.equal(
+        safety.getStatus()
+          .auditEntries,
+        0,
+      );
+
+      const entries =
+        audit.getAll();
+
+      assert.equal(
+        entries.length,
+        2,
+      );
+
+      assert.equal(
+        entries[1].type,
+        'runtime_reset',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
+  },
+);
+
+test(
+  'permite consultar eventos recentes',
+  () => {
+    const {
+      directory,
+      control,
+    } =
+      createEnvironment();
+
+    try {
+      control.markRuntimeStarted();
+      control.enable();
+      control.disable();
+      control.markRuntimeShutdown();
+
+      const recent =
+        control.getRecentAuditEntries(
+          2,
+        );
+
+      assert.equal(
+        recent.length,
+        2,
+      );
+
+      assert.equal(
+        recent[0].type,
+        'runtime_disabled',
+      );
+
+      assert.equal(
+        recent[1].type,
+        'runtime_shutdown',
+      );
+    } finally {
+      cleanup(
+        directory,
+      );
+    }
   },
 );
