@@ -31,6 +31,22 @@ import {
 } from './modelManager';
 
 import {
+  SemanticActiveLearningService,
+  type SemanticActiveLearningInput,
+  type SemanticActiveLearningOptions,
+  type SemanticActiveLearningScore,
+} from './semanticActiveLearningService';
+
+import {
+  SemanticCandidateService,
+  type SemanticCandidate,
+} from './semanticCandidateService';
+
+import {
+  SemanticFeedbackService,
+} from './semanticFeedbackService';
+
+import {
   SemanticFeedbackTrainingService,
   type SemanticFeedbackTrainingOptions,
   type SemanticFeedbackTrainingContext,
@@ -48,6 +64,12 @@ import type {
 export interface AIRuntimePrediction {
   prediction: IntentPrediction;
   activeLearning: ActiveLearningScore;
+}
+
+export interface AIRuntimeSemanticAnalysis {
+  input: SemanticActiveLearningInput;
+  score: SemanticActiveLearningScore;
+  candidate: SemanticCandidate | null;
 }
 
 export interface AIRuntimeSemanticTrainingResult {
@@ -240,6 +262,197 @@ export class AIRuntimeService {
   }
 
   /**
+   * Analisa semanticamente dois textos e os envia
+   * ao pipeline de Semantic Active Learning.
+   *
+   * O método não força a criação de candidato:
+   * isso depende da política configurada no
+   * SemanticActiveLearningService.
+   */
+  public static analyzeSemanticPair(
+    first: string,
+    second: string,
+    options: SemanticActiveLearningOptions = {},
+    noveltyScore = 1,
+    tfidfScore?: number,
+    keywordScore?: number,
+    retrievalScore?: number,
+  ): AIRuntimeSemanticAnalysis {
+    this.ensureInitialized();
+
+    const normalizedFirst =
+      first.trim();
+
+    const normalizedSecond =
+      second.trim();
+
+    if (
+      !normalizedFirst ||
+      !normalizedSecond
+    ) {
+      throw new Error(
+        'Os textos do par semântico não podem estar vazios.',
+      );
+    }
+
+    const semanticScore =
+      ModelManager
+        .getSentenceModel()
+        .similarity(
+          ModelManager
+            .getWordEmbeddingModel(),
+          normalizedFirst,
+          normalizedSecond,
+        );
+
+    const input:
+      SemanticActiveLearningInput = {
+      first:
+        normalizedFirst,
+
+      second:
+        normalizedSecond,
+
+      semanticScore,
+
+      tfidfScore,
+
+      keywordScore,
+
+      retrievalScore,
+
+      noveltyScore,
+    };
+
+    const score =
+      SemanticActiveLearningService.score(
+        input,
+        options,
+      );
+
+    const candidate =
+      SemanticActiveLearningService.consider(
+        input,
+        options,
+      );
+
+    return {
+      input,
+      score,
+      candidate,
+    };
+  }
+
+  /**
+   * Retorna os candidatos semânticos pendentes
+   * ordenados pelo próprio CandidateService.
+   */
+  public static getPendingSemanticCandidates(
+    limit = 20,
+  ): SemanticCandidate[] {
+    this.ensureInitialized();
+
+    return SemanticCandidateService
+      .getPending(
+        limit,
+      );
+  }
+
+  /**
+   * Retorna a quantidade de candidatos semânticos
+   * aguardando revisão.
+   */
+  public static getPendingSemanticCandidateCount():
+    number {
+    this.ensureInitialized();
+
+    return SemanticCandidateService
+      .getPendingCount();
+  }
+
+  /**
+   * Aprova um candidato semântico como par positivo
+   * ou negativo.
+   *
+   * O candidato vira feedback supervisionado humano
+   * e deixa de aparecer na fila de revisão.
+   */
+  public static approveSemanticCandidate(
+    candidateId: number,
+    label: 0 | 1,
+  ): boolean {
+    this.ensureInitialized();
+
+    const candidate =
+      SemanticCandidateService.getById(
+        candidateId,
+      );
+
+    if (!candidate) {
+      return false;
+    }
+
+    if (candidate.reviewed) {
+      return false;
+    }
+
+    if (
+      label !== 0 &&
+      label !== 1
+    ) {
+      return false;
+    }
+
+    const feedback =
+      SemanticFeedbackService.add(
+        candidate.first,
+        candidate.second,
+        label,
+        'human',
+      );
+
+    /*
+     * Um par que já exista como feedback não deve
+     * impedir a revisão de ser finalizada.
+     *
+     * Isso cobre o caso de o feedback ter sido
+     * inserido por outra rotina depois da criação
+     * do candidato.
+     */
+    if (
+      !feedback &&
+      !SemanticFeedbackService.hasPair(
+        candidate.first,
+        candidate.second,
+        label,
+      )
+    ) {
+      return false;
+    }
+
+    return SemanticCandidateService
+      .markReviewed(
+        candidateId,
+      );
+  }
+
+  /**
+   * Rejeita um candidato semântico.
+   *
+   * Nenhum dado é adicionado ao treinamento.
+   */
+  public static rejectSemanticCandidate(
+    candidateId: number,
+  ): boolean {
+    this.ensureInitialized();
+
+    return SemanticCandidateService
+      .markReviewed(
+        candidateId,
+      );
+  }
+
+  /**
    * Inicia um ciclo de fine-tuning semântico
    * controlado pelo AIRuntime.
    *
@@ -259,7 +472,8 @@ export class AIRuntimeService {
    */
   public static trainSemanticFromFeedback(
     options: SemanticFeedbackTrainingOptions = {},
-    thresholds: Partial<SemanticPromotionThresholds> = {},
+    thresholds:
+      Partial<SemanticPromotionThresholds> = {},
   ): AIRuntimeSemanticTrainingResult {
     this.ensureInitialized();
 

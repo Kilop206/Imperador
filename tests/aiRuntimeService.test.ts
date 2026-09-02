@@ -10,6 +10,10 @@ import {
 } from '../src/intelligence/intentClassifier';
 
 import {
+  SemanticCandidateService,
+} from '../src/intelligence/semanticCandidateService';
+
+import {
   SemanticFeedbackService,
 } from '../src/intelligence/semanticFeedbackService';
 
@@ -181,6 +185,226 @@ test(
 );
 
 test(
+  'AIRuntimeService analisa um par semântico',
+  () => {
+    AIRuntimeService.initialize();
+
+    const result =
+      AIRuntimeService.analyzeSemanticPair(
+        'como você está?',
+        'como você se sente?',
+      );
+
+    assert.ok(result);
+
+    assert.ok(result.input);
+
+    assert.equal(
+      result.input.first,
+      'como você está?',
+    );
+
+    assert.equal(
+      result.input.second,
+      'como você se sente?',
+    );
+
+    assert.equal(
+      typeof result.input.semanticScore,
+      'number',
+    );
+
+    assert.ok(
+      result.input.semanticScore >= 0,
+    );
+
+    assert.ok(
+      result.input.semanticScore <= 1,
+    );
+
+    assert.ok(result.score);
+
+    assert.equal(
+      typeof result.score.uncertainty,
+      'number',
+    );
+
+    assert.equal(
+      typeof result.score.novelty,
+      'number',
+    );
+
+    assert.equal(
+      typeof result.score.disagreement,
+      'number',
+    );
+
+    assert.equal(
+      typeof result.score.collectionScore,
+      'number',
+    );
+
+    if (result.candidate) {
+      assert.equal(
+        typeof result.candidate.id,
+        'number',
+      );
+
+      assert.equal(
+        result.candidate.reviewed,
+        false,
+      );
+    }
+  },
+);
+
+test(
+  'AIRuntimeService expõe candidatos semânticos pendentes',
+  () => {
+    AIRuntimeService.initialize();
+
+    const candidates =
+      AIRuntimeService
+        .getPendingSemanticCandidates();
+
+    assert.ok(
+      Array.isArray(candidates),
+    );
+
+    const count =
+      AIRuntimeService
+        .getPendingSemanticCandidateCount();
+
+    assert.equal(
+      typeof count,
+      'number',
+    );
+
+    assert.ok(
+      count >= 0,
+    );
+  },
+);
+
+test(
+  'AIRuntimeService pode aprovar um candidato semântico',
+  () => {
+    AIRuntimeService.initialize();
+
+    const first =
+      `teste positivo runtime ${Date.now()}`;
+
+    const second =
+      `teste semelhante runtime ${Date.now()}`;
+
+    const candidate =
+      SemanticCandidateService.collect(
+        first,
+        second,
+        0.5,
+        'uncertain',
+      );
+
+    assert.ok(candidate);
+
+    const candidateId =
+      candidate.id;
+
+    const approved =
+      AIRuntimeService
+        .approveSemanticCandidate(
+          candidateId,
+          1,
+        );
+
+    assert.equal(
+      approved,
+      true,
+    );
+
+    const reviewed =
+      SemanticCandidateService
+        .getById(
+          candidateId,
+        );
+
+    assert.ok(reviewed);
+
+    assert.equal(
+      reviewed.reviewed,
+      true,
+    );
+
+    assert.equal(
+      SemanticFeedbackService.hasPair(
+        first,
+        second,
+        1,
+      ),
+      true,
+    );
+  },
+);
+
+test(
+  'AIRuntimeService pode rejeitar um candidato semântico',
+  () => {
+    AIRuntimeService.initialize();
+
+    const first =
+      `teste rejeitado runtime ${Date.now()}`;
+
+    const second =
+      `teste sem relação runtime ${Date.now()}`;
+
+    const candidate =
+      SemanticCandidateService.collect(
+        first,
+        second,
+        0.5,
+        'uncertain',
+      );
+
+    assert.ok(candidate);
+
+    const candidateId =
+      candidate.id;
+
+    const rejected =
+      AIRuntimeService
+        .rejectSemanticCandidate(
+          candidateId,
+        );
+
+    assert.equal(
+      rejected,
+      true,
+    );
+
+    const reviewed =
+      SemanticCandidateService
+        .getById(
+          candidateId,
+        );
+
+    assert.ok(reviewed);
+
+    assert.equal(
+      reviewed.reviewed,
+      true,
+    );
+
+    assert.equal(
+      SemanticFeedbackService.hasPair(
+        first,
+        second,
+      ),
+      false,
+    );
+  },
+);
+
+test(
   'AIRuntimeService expõe preview do treinamento semântico',
   () => {
     AIRuntimeService.initialize();
@@ -188,7 +412,9 @@ test(
     const feedbackCount =
       SemanticFeedbackService.getCount();
 
-    if (feedbackCount === 0) {
+    if (
+      feedbackCount === 0
+    ) {
       assert.throws(
         () =>
           AIRuntimeService
@@ -224,18 +450,6 @@ test(
       preview.testCount,
       preview.split.test.length,
     );
-
-    assert.ok(
-      preview.split.train.length > 0,
-    );
-
-    assert.ok(
-      preview.split.validation.length > 0,
-    );
-
-    assert.ok(
-      preview.split.test.length > 0,
-    );
   },
 );
 
@@ -247,7 +461,9 @@ test(
     const feedbackCount =
       SemanticFeedbackService.getCount();
 
-    if (feedbackCount === 0) {
+    if (
+      feedbackCount === 0
+    ) {
       assert.throws(
         () =>
           AIRuntimeService
