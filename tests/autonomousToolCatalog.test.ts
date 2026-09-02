@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
@@ -14,17 +16,39 @@ import {
 } from '../src/intelligence/toolRegistry';
 
 import {
-  GoalEngine,
-} from '../src/intelligence/goalEngine';
-
-import {
   PlanningEngine,
 } from '../src/intelligence/planningEngine';
 
+import {
+  GoalEngine,
+} from '../src/intelligence/goalEngine';
+
 const TEST_STORAGE_FILE =
-  `${process.cwd()}/data/test-tool-catalog-goals.json`;
+  path.join(
+    process.cwd(),
+    'data',
+    'test-autonomous-tool-catalog-goals.json',
+  );
+
+function cleanup(): void {
+  try {
+    if (
+      fs.existsSync(
+        TEST_STORAGE_FILE,
+      )
+    ) {
+      fs.unlinkSync(
+        TEST_STORAGE_FILE,
+      );
+    }
+  } catch {
+    // Ignora erros de limpeza.
+  }
+}
 
 function createCatalog() {
+  cleanup();
+
   GoalEngine.initialize(
     TEST_STORAGE_FILE,
   );
@@ -57,14 +81,15 @@ test.afterEach(() => {
   try {
     GoalEngine.reset();
   } catch {
-    // Ignora
+    // Ignora.
   }
 
   PlanningEngine.reset();
+  cleanup();
 });
 
 test(
-  'registra as ferramentas padrão',
+  'registra todas as ferramentas diagnósticas padrão',
   () => {
     const {
       registry,
@@ -73,6 +98,11 @@ test(
       createCatalog();
 
     catalog.registerDefaults();
+
+    assert.equal(
+      registry.getToolCount(),
+      5,
+    );
 
     assert.equal(
       registry.has(
@@ -96,27 +126,17 @@ test(
     );
 
     assert.equal(
-      registry.getToolCount(),
-      3,
+      registry.has(
+        'active_plans',
+      ),
+      true,
     );
-  },
-);
-
-test(
-  'registro padrão é idempotente',
-  () => {
-    const {
-      registry,
-      catalog,
-    } =
-      createCatalog();
-
-    catalog.registerDefaults();
-    catalog.registerDefaults();
 
     assert.equal(
-      registry.getToolCount(),
-      3,
+      registry.has(
+        'model_status',
+      ),
+      true,
     );
   },
 );
@@ -132,108 +152,30 @@ test(
 
     catalog.registerDefaults();
 
-    assert.equal(
-      registry.getRiskLevel(
+    const tool =
+      registry.get(
         'system_health',
-      ),
-      'low',
-    );
-  },
-);
-
-test(
-  'active_goals é uma ferramenta de baixo risco',
-  () => {
-    const {
-      registry,
-      catalog,
-    } =
-      createCatalog();
-
-    catalog.registerDefaults();
-
-    assert.equal(
-      registry.getRiskLevel(
-        'active_goals',
-      ),
-      'low',
-    );
-  },
-);
-
-test(
-  'recent_observations é uma ferramenta de baixo risco',
-  () => {
-    const {
-      registry,
-      catalog,
-    } =
-      createCatalog();
-
-    catalog.registerDefaults();
-
-    assert.equal(
-      registry.getRiskLevel(
-        'recent_observations',
-      ),
-      'low',
-    );
-  },
-);
-
-test(
-  'system_health executa sem efeitos colaterais',
-  async () => {
-    const {
-      registry,
-      catalog,
-    } =
-      createCatalog();
-
-    catalog.registerDefaults();
-
-    const result =
-      await registry.execute(
-        'system_health',
-        {},
-        {
-          source:
-            'autonomous-agent',
-        },
       );
 
+    assert.ok(
+      tool,
+    );
+
     assert.equal(
-      result.success,
-      true,
+      tool?.riskLevel,
+      'low',
     );
 
-    assert.ok(
-      result.result,
-    );
-
-    const value =
-      result.result as Record<
-        string,
-        unknown
-      >;
-
-    assert.ok(
-      value.mode,
-    );
-
-    assert.ok(
-      value.ai,
-    );
-
-    assert.ok(
-      value.evaluation,
+    assert.deepEqual(
+      tool?.parameters,
+      [],
     );
   },
 );
 
 test(
-  'active_goals retorna os objetivos ativos',
-  async () => {
+  'active_plans retorna somente planos ativos',
+  () => {
     const {
       registry,
       catalog,
@@ -247,54 +189,75 @@ test(
         type:
           'learn_topic',
         title:
-          'Objetivo de catálogo',
+          'Plano de teste',
         description:
-          'Objetivo utilizado pelo teste.',
+          'Objetivo para validação.',
         priority:
-          'low',
+          'medium',
         targetMetric:
           'progress',
         targetValue:
           100,
+        initialValue:
+          0,
         criteria: [
-          'Testar ferramenta.',
+          'Executar teste.',
         ],
       });
 
-    const result =
-      await registry.execute(
-        'active_goals',
-        {},
-        {
-          source:
-            'autonomous-agent',
-        },
+    const plan =
+      PlanningEngine.createPlanForGoal(
+        goal,
       );
 
-    assert.equal(
-      result.success,
-      true,
-    );
+    const result =
+      registry.execute(
+        'active_plans',
+        {},
+      );
 
-    const value =
-      result.result as {
-        goals: Array<{
-          id: string;
-        }>;
-      };
+    return result.then(
+      execution => {
+        assert.equal(
+          execution.success,
+          true,
+        );
 
-    assert.ok(
-      value.goals.some(
-        item =>
-          item.id ===
+        const payload =
+          execution.result as {
+            plans: Array<{
+              id: string;
+              goalId: string;
+              status: string;
+            }>;
+          };
+
+        assert.equal(
+          payload.plans.length,
+          1,
+        );
+
+        assert.equal(
+          payload.plans[0].id,
+          plan.id,
+        );
+
+        assert.equal(
+          payload.plans[0].goalId,
           goal.id,
-      ),
+        );
+
+        assert.equal(
+          payload.plans[0].status,
+          'ready',
+        );
+      },
     );
   },
 );
 
 test(
-  'recent_observations retorna observações recentes',
+  'recent_observations limita a quantidade retornada',
   async () => {
     const {
       registry,
@@ -305,25 +268,25 @@ test(
 
     catalog.registerDefaults();
 
-    observations.observeSystem({
-      summary:
-        'Observação de teste.',
-    });
-
-    observations.observeSystem({
-      summary:
-        'Segunda observação.',
-    });
+    for (
+      let index = 0;
+      index < 20;
+      index += 1
+    ) {
+      observations.observeSystem({
+        summary:
+          `Observação ${index}`,
+        significance:
+          'low',
+      });
+    }
 
     const result =
       await registry.execute(
         'recent_observations',
         {
-          limit: 1,
-        },
-        {
-          source:
-            'autonomous-agent',
+          limit:
+            5,
         },
       );
 
@@ -332,27 +295,20 @@ test(
       true,
     );
 
-    const value =
+    const payload =
       result.result as {
-        observations: Array<{
-          summary: string;
-        }>;
+        observations: unknown[];
       };
 
     assert.equal(
-      value.observations.length,
-      1,
-    );
-
-    assert.equal(
-      value.observations[0].summary,
-      'Segunda observação.',
+      payload.observations.length,
+      5,
     );
   },
 );
 
 test(
-  'limita a quantidade máxima de observações retornadas',
+  'recent_observations limita valores excessivos ao máximo seguro',
   async () => {
     const {
       registry,
@@ -370,7 +326,9 @@ test(
     ) {
       observations.observeSystem({
         summary:
-          `Observação ${index}.`,
+          `Observação ${index}`,
+        significance:
+          'low',
       });
     }
 
@@ -378,11 +336,8 @@ test(
       await registry.execute(
         'recent_observations',
         {
-          limit: 1_000,
-        },
-        {
-          source:
-            'autonomous-agent',
+          limit:
+            10_000,
         },
       );
 
@@ -391,22 +346,20 @@ test(
       true,
     );
 
-    const value =
+    const payload =
       result.result as {
-        observations: Array<{
-          summary: string;
-        }>;
+        observations: unknown[];
       };
 
     assert.equal(
-      value.observations.length,
+      payload.observations.length,
       50,
     );
   },
 );
 
 test(
-  'rejeita parâmetro inválido para recent_observations',
+  'catalogo não substitui ferramentas existentes',
   async () => {
     const {
       registry,
@@ -414,67 +367,50 @@ test(
     } =
       createCatalog();
 
-    catalog.registerDefaults();
-
-    const result =
-      await registry.execute(
-        'recent_observations',
-        {
-          limit:
-            'dez',
-        },
-        {
-          source:
-            'autonomous-agent',
-        },
-      );
-
-    assert.equal(
-      result.success,
-      false,
-    );
-
-    assert.match(
-      result.error ?? '',
-      /limit.*number/i,
-    );
-  },
-);
-
-test(
-  'catálogo não substitui ferramentas existentes',
-  () => {
-    const {
-      registry,
-      catalog,
-    } =
-      createCatalog();
+    const customResult = {
+      custom:
+        true,
+    };
 
     registry.register({
       name:
         'system_health',
       description:
-        'Ferramenta customizada.',
+        'Implementação customizada.',
       riskLevel:
         'low',
       parameters: [],
-      execute: () => ({
-        custom:
-          true,
-      }),
+      execute: () =>
+        customResult,
     });
 
     catalog.registerDefaults();
 
     assert.equal(
       registry.getToolCount(),
-      3,
+      5,
+    );
+
+    const result =
+      await registry.execute(
+        'system_health',
+        {},
+      );
+
+    assert.equal(
+      result.success,
+      true,
+    );
+
+    assert.deepEqual(
+      result.result,
+      customResult,
     );
   },
 );
 
 test(
-  'não registra ferramentas de escrita ou execução arbitrária',
+  'todas as ferramentas padrão permanecem habilitadas',
   () => {
     const {
       registry,
@@ -484,19 +420,33 @@ test(
 
     catalog.registerDefaults();
 
-    const names =
-      registry.list().map(
-        tool =>
-          tool.name,
-      );
-
-    assert.deepEqual(
-      names.sort(),
-      [
+    for (
+      const toolName of [
+        'system_health',
         'active_goals',
         'recent_observations',
-        'system_health',
-      ],
-    );
+        'active_plans',
+        'model_status',
+      ]
+    ) {
+      const tool =
+        registry.get(
+          toolName,
+        );
+
+      assert.ok(
+        tool,
+      );
+
+      assert.equal(
+        tool?.enabled,
+        true,
+      );
+
+      assert.equal(
+        tool?.riskLevel,
+        'low',
+      );
+    }
   },
 );

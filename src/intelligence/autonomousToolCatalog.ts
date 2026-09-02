@@ -11,6 +11,14 @@ import {
 } from './selfEvaluationEngine';
 
 import {
+  PlanningEngine,
+} from './planningEngine';
+
+import {
+  ModelManager,
+} from './modelManager';
+
+import {
   ModeManager,
 } from '../services/modeManager';
 
@@ -64,6 +72,8 @@ export class AutonomousToolCatalog {
     this.registerSystemHealth();
     this.registerActiveGoals();
     this.registerRecentObservations();
+    this.registerActivePlans();
+    this.registerModelStatus();
   }
 
   public registerSystemHealth(): void {
@@ -181,6 +191,69 @@ export class AutonomousToolCatalog {
             ),
         };
       },
+      enabled:
+        true,
+      timeoutMs:
+        5_000,
+    });
+  }
+
+  public registerActivePlans(): void {
+    if (
+      this.registry.has(
+        'active_plans',
+      )
+    ) {
+      return;
+    }
+
+    this.registry.register({
+      name:
+        'active_plans',
+      description:
+        'Lista os planos autônomos atualmente prontos ou em execução.',
+      riskLevel:
+        'low',
+      parameters: [],
+      execute: () => ({
+        plans:
+          PlanningEngine.getAllPlans()
+            .filter(
+              plan =>
+                plan.status ===
+                  'ready' ||
+                plan.status ===
+                  'executing',
+            ),
+      }),
+      enabled:
+        true,
+      timeoutMs:
+        5_000,
+    });
+  }
+
+  public registerModelStatus(): void {
+    if (
+      this.registry.has(
+        'model_status',
+      )
+    ) {
+      return;
+    }
+
+    this.registry.register({
+      name:
+        'model_status',
+      description:
+        'Consulta o estado operacional dos modelos internos de inteligência.',
+      riskLevel:
+        'low',
+      parameters: [],
+      execute: () => ({
+        models:
+          ModelManager.getStatus(),
+      }),
       enabled:
         true,
       timeoutMs:
