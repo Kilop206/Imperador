@@ -80,6 +80,10 @@ import {
   ObservationEngine,
 } from './intelligence/observationEngine';
 
+import {
+  AutonomousToolCatalog,
+} from './intelligence/autonomousToolCatalog';
+
 const EMOTION_DECAY_INTERVAL_MS =
   5 * 60 * 1000;
 
@@ -175,6 +179,16 @@ client.once('ready', () => {
 
     const observationEngine =
       new ObservationEngine();
+
+    const toolCatalog =
+      new AutonomousToolCatalog(
+        toolRegistry,
+        {
+          observationEngine,
+        },
+      );
+
+    toolCatalog.registerDefaults();
 
     autonomousAgent =
       new AutonomousAgentOrchestrator(

@@ -20,6 +20,7 @@ const autonomousAgentOrchestrator_1 = require("./intelligence/autonomousAgentOrc
 const safetyPermissionEngine_1 = require("./intelligence/safetyPermissionEngine");
 const toolRegistry_1 = require("./intelligence/toolRegistry");
 const observationEngine_1 = require("./intelligence/observationEngine");
+const autonomousToolCatalog_1 = require("./intelligence/autonomousToolCatalog");
 const EMOTION_DECAY_INTERVAL_MS = 5 * 60 * 1000;
 const AI_STATUS_INTERVAL_MS = 30 * 60 * 1000;
 const AUTONOMOUS_AGENT_INTERVAL_MS = 15 * 1000;
@@ -62,6 +63,10 @@ client.once('ready', () => {
         const toolRegistry = new toolRegistry_1.ToolRegistry();
         const safetyPermissionEngine = new safetyPermissionEngine_1.SafetyPermissionEngine(toolRegistry);
         const observationEngine = new observationEngine_1.ObservationEngine();
+        const toolCatalog = new autonomousToolCatalog_1.AutonomousToolCatalog(toolRegistry, {
+            observationEngine,
+        });
+        toolCatalog.registerDefaults();
         autonomousAgent =
             new autonomousAgentOrchestrator_1.AutonomousAgentOrchestrator(safetyPermissionEngine, observationEngine, {
                 enabled: autonomousAgentEnabled,
