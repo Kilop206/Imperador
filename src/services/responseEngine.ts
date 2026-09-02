@@ -21,6 +21,20 @@ import {
 import {
   ConversationMemoryEngine,
 } from '../intelligence/conversationMemory';
+import {
+  SemanticContextService,
+} from '../intelligence/semanticContextService';
+import {
+  MemoryService,
+} from './memoryService';
+
+/**
+ * Singleton do SemanticContextService.
+ * Começa sem configuração — os sinais determinísticos existentes
+ * não dependem dele. Pode ser ativado via ResponseEngine.setSemanticService().
+ */
+const semanticContextService =
+  new SemanticContextService();
 
 export type ResponseSource =
   | 'memory'
@@ -30,7 +44,8 @@ export type ResponseSource =
   | 'mode'
   | 'keyword'
   | 'intent'
-  | 'rare';
+  | 'rare'
+  | 'semantic';
 
 export interface ResponseCandidate {
   text: string;
@@ -39,6 +54,19 @@ export interface ResponseCandidate {
 }
 
 export class ResponseEngine {
+  /**
+   * Configura o SemanticContextService para enriquecimento de contexto.
+   * Chamada opcional — se não chamada, o comportamento existente é preservado.
+   */
+  static setSemanticService(
+    service: SemanticContextService
+  ): void {
+    Object.assign(
+      semanticContextService,
+      service
+    );
+  }
+
   static generateCandidates(
     content: string,
     userId?: string
@@ -114,6 +142,15 @@ export class ResponseEngine {
       candidates
     );
 
+    // Semantic context enrichment (optional — only when service is configured)
+    if (userId) {
+      this.addSemanticCandidates(
+        userId,
+        content,
+        candidates
+      );
+    }
+
     const rareResponse =
       RarityManager.getRareResponse();
 
@@ -183,6 +220,54 @@ export class ResponseEngine {
     return this.randomItem(
       bestCandidates
     ).text;
+  }
+
+  private static addSemanticCandidates(
+    userId: string,
+    content: string,
+    candidates: ResponseCandidate[]
+  ): void {
+    if (!semanticContextService.isConfigured()) {
+      return;
+    }
+
+    try {
+      const memories =
+        MemoryService.getUserConversations(
+          userId,
+          20
+        );
+
+      if (memories.length === 0) {
+        return;
+      }
+
+      const context =
+        semanticContextService.buildContext(
+          content,
+          memories,
+          emotionState
+        );
+
+      if (!context.isActive || !context.best) {
+        return;
+      }
+
+      // Score semântico: entre memória TF-IDF (85) e keyword (65)
+      // Proporcional ao score final do HybridRetrieval
+      const semanticScore =
+        65 + Math.round(
+          context.best.score.final * 20
+        );
+
+      candidates.push({
+        text: context.contextSummary,
+        source: 'semantic',
+        score: semanticScore,
+      });
+    } catch {
+      // Falha silenciosa — o pipeline determinístico continua
+    }
   }
 
   private static addMemoryCandidates(
