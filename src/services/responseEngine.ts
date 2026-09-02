@@ -29,11 +29,13 @@ import {
 } from './memoryService';
 
 /**
- * Singleton do SemanticContextService.
- * Começa sem configuração — os sinais determinísticos existentes
- * não dependem dele. Pode ser ativado via ResponseEngine.setSemanticService().
+ * Instância atual do SemanticContextService.
+ *
+ * O serviço começa sem configuração — os sinais determinísticos existentes
+ * não dependem dele. Pode ser substituído integralmente por
+ * ResponseEngine.setSemanticService().
  */
-const semanticContextService =
+let semanticContextService =
   new SemanticContextService();
 
 export type ResponseSource =
@@ -56,15 +58,15 @@ export interface ResponseCandidate {
 export class ResponseEngine {
   /**
    * Configura o SemanticContextService para enriquecimento de contexto.
-   * Chamada opcional — se não chamada, o comportamento existente é preservado.
+   *
+   * A instância recebida passa a ser usada diretamente pelo ResponseEngine.
+   * Isso evita copiar estado interno com Object.assign().
    */
   static setSemanticService(
     service: SemanticContextService
   ): void {
-    Object.assign(
-      semanticContextService,
-      service
-    );
+    semanticContextService =
+      service;
   }
 
   static generateCandidates(
@@ -249,14 +251,18 @@ export class ResponseEngine {
           emotionState
         );
 
-      if (!context.isActive || !context.best) {
+      if (
+        !context.isActive ||
+        !context.best
+      ) {
         return;
       }
 
       // Score semântico: entre memória TF-IDF (85) e keyword (65)
       // Proporcional ao score final do HybridRetrieval
       const semanticScore =
-        65 + Math.round(
+        65 +
+        Math.round(
           context.best.score.final * 20
         );
 
@@ -559,17 +565,32 @@ export class ResponseEngine {
         // 3. Apply emotion-based score modifiers per source
         let bonus = 0;
 
-        if (candidate.source === 'aggressive') {
-          bonus = modifiers.aggressiveBoost;
-        } else if (candidate.source === 'compliment') {
-          bonus = modifiers.complimentModifier;
-        } else if (
-          candidate.source === 'mode' ||
-          candidate.source === 'intent'
+        if (
+          candidate.source ===
+          'aggressive'
         ) {
-          bonus = modifiers.reflectiveBoost;
-        } else if (candidate.source === 'keyword') {
-          bonus = modifiers.curiosityBoost;
+          bonus =
+            modifiers.aggressiveBoost;
+        } else if (
+          candidate.source ===
+          'compliment'
+        ) {
+          bonus =
+            modifiers.complimentModifier;
+        } else if (
+          candidate.source ===
+            'mode' ||
+          candidate.source ===
+            'intent'
+        ) {
+          bonus =
+            modifiers.reflectiveBoost;
+        } else if (
+          candidate.source ===
+          'keyword'
+        ) {
+          bonus =
+            modifiers.curiosityBoost;
         }
 
         if (bonus === 0) {
@@ -578,7 +599,9 @@ export class ResponseEngine {
 
         return {
           ...candidate,
-          score: candidate.score + bonus,
+          score:
+            candidate.score +
+            bonus,
         };
       });
   }

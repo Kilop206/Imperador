@@ -14,6 +14,10 @@ import {
   ResponseEngine,
 } from '../src/services/responseEngine';
 
+import {
+  SemanticContextService,
+} from '../src/intelligence/semanticContextService';
+
 beforeEach(() => {
   MemoryService.close();
 
@@ -232,5 +236,45 @@ test(
           highestKeyword
       );
     }
+  }
+);
+
+test(
+  'setSemanticService deve usar diretamente a instância fornecida',
+  () => {
+    const semanticService =
+      new SemanticContextService();
+
+    semanticService.enable();
+
+    ResponseEngine.setSemanticService(
+      semanticService
+    );
+
+    MemoryService.upsertUser(
+      '456',
+      'Kilop'
+    );
+
+    MemoryService.saveConversation(
+      '456',
+      'roma',
+      'Usuário demonstrou interesse por Roma.',
+      5
+    );
+
+    const candidates =
+      ResponseEngine.generateCandidates(
+        'Você lembra de Roma?',
+        '456'
+      );
+
+    assert.ok(
+      candidates.some(
+        candidate =>
+          candidate.source ===
+          'semantic'
+      )
+    );
   }
 );
