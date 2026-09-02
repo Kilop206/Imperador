@@ -2,208 +2,315 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-AIRuntimeService,
+  AIRuntimeService,
 } from '../src/intelligence/aiRuntimeService';
 
 import {
-IntentClassifier,
+  IntentClassifier,
 } from '../src/intelligence/intentClassifier';
 
-test(
-'AIRuntimeService inicializa corretamente',
-() => {
-AIRuntimeService.initialize();
-
-assert.equal(
-  AIRuntimeService.isInitialized(),
-  true,
-);
-
-assert.equal(
-  IntentClassifier.isTrained(),
-  true,
-);
-
-},
-);
+import {
+  SemanticFeedbackService,
+} from '../src/intelligence/semanticFeedbackService';
 
 test(
-'AIRuntimeService retorna uma análise de intenção válida',
-() => {
-AIRuntimeService.initialize();
+  'AIRuntimeService inicializa corretamente',
+  () => {
+    AIRuntimeService.initialize();
 
-const result =
-  AIRuntimeService.analyzeIntent(
-    'olá, tudo bem?',
-  );
+    assert.equal(
+      AIRuntimeService.isInitialized(),
+      true,
+    );
 
-assert.ok(result);
-
-assert.ok(result.prediction);
-
-assert.equal(
-  typeof result.prediction.intent,
-  'string',
-);
-
-assert.equal(
-  typeof result.prediction.confidence,
-  'number',
-);
-
-assert.ok(
-  result.prediction.confidence >= 0,
-);
-
-assert.ok(
-  result.prediction.confidence <= 1,
-);
-
-assert.ok(result.activeLearning);
-
-assert.equal(
-  typeof result.activeLearning.score,
-  'number',
-);
-
-},
+    assert.equal(
+      IntentClassifier.isTrained(),
+      true,
+    );
+  },
 );
 
 test(
-'AIRuntimeService expõe o estado do runtime',
-() => {
-AIRuntimeService.initialize();
+  'AIRuntimeService retorna uma análise de intenção válida',
+  () => {
+    AIRuntimeService.initialize();
 
-const status =
-  AIRuntimeService.getStatus();
+    const result =
+      AIRuntimeService.analyzeIntent(
+        'olá, tudo bem?',
+      );
 
-assert.equal(
-  status.initialized,
-  true,
-);
+    assert.ok(result);
 
-assert.equal(
-  typeof status.intent.trained,
-  'boolean',
-);
+    assert.ok(result.prediction);
 
-assert.equal(
-  typeof status.intent.vocabularySize,
-  'number',
-);
+    assert.equal(
+      typeof result.prediction.intent,
+      'string',
+    );
 
-assert.equal(
-  typeof status.intent.trainingExamples,
-  'number',
-);
+    assert.equal(
+      typeof result.prediction.confidence,
+      'number',
+    );
 
-assert.equal(
-  typeof status.intent.learnedExamples,
-  'number',
-);
+    assert.ok(
+      result.prediction.confidence >= 0,
+    );
 
-assert.equal(
-  typeof status.intent.totalExamples,
-  'number',
-);
+    assert.ok(
+      result.prediction.confidence <= 1,
+    );
 
-assert.equal(
-  typeof status.intent.pendingCandidates,
-  'number',
-);
+    assert.ok(result.activeLearning);
 
-assert.ok(
-  status.semantic,
-);
-
-},
+    assert.equal(
+      typeof result.activeLearning.score,
+      'number',
+    );
+  },
 );
 
 test(
-'AIRuntimeService retorna candidatos de intenção',
-() => {
-AIRuntimeService.initialize();
+  'AIRuntimeService expõe o estado do runtime',
+  () => {
+    AIRuntimeService.initialize();
 
-const candidates =
-  AIRuntimeService
-    .getPendingIntentCandidates();
+    const status =
+      AIRuntimeService.getStatus();
 
-assert.ok(
-  Array.isArray(candidates),
-);
+    assert.equal(
+      status.initialized,
+      true,
+    );
 
-const count =
-  AIRuntimeService
-    .getPendingIntentCandidateCount();
+    assert.equal(
+      typeof status.intent.trained,
+      'boolean',
+    );
 
-assert.equal(
-  typeof count,
-  'number',
-);
+    assert.equal(
+      typeof status.intent.vocabularySize,
+      'number',
+    );
 
-assert.ok(
-  count >= 0,
-);
+    assert.equal(
+      typeof status.intent.trainingExamples,
+      'number',
+    );
 
-},
-);
+    assert.equal(
+      typeof status.intent.learnedExamples,
+      'number',
+    );
 
-test(
-'AIRuntimeService permite obter uma predição diretamente',
-() => {
-AIRuntimeService.initialize();
+    assert.equal(
+      typeof status.intent.totalExamples,
+      'number',
+    );
 
-const prediction =
-  AIRuntimeService.getIntentPrediction(
-    'isso é uma pergunta?',
-  );
+    assert.equal(
+      typeof status.intent.pendingCandidates,
+      'number',
+    );
 
-assert.ok(prediction);
-
-assert.equal(
-  typeof prediction.intent,
-  'string',
-);
-
-assert.equal(
-  typeof prediction.confidence,
-  'number',
-);
-
-assert.ok(
-  prediction.confidence >= 0,
-);
-
-assert.ok(
-  prediction.confidence <= 1,
-);
-
-},
+    assert.ok(
+      status.semantic,
+    );
+  },
 );
 
 test(
-'AIRuntimeService pode ser reinicializado',
-() => {
-AIRuntimeService.initialize();
+  'AIRuntimeService retorna candidatos de intenção',
+  () => {
+    AIRuntimeService.initialize();
 
-assert.equal(
-  AIRuntimeService.isInitialized(),
-  true,
+    const candidates =
+      AIRuntimeService
+        .getPendingIntentCandidates();
+
+    assert.ok(
+      Array.isArray(candidates),
+    );
+
+    const count =
+      AIRuntimeService
+        .getPendingIntentCandidateCount();
+
+    assert.equal(
+      typeof count,
+      'number',
+    );
+
+    assert.ok(
+      count >= 0,
+    );
+  },
 );
 
-AIRuntimeService.reset();
+test(
+  'AIRuntimeService permite obter uma predição diretamente',
+  () => {
+    AIRuntimeService.initialize();
 
-assert.equal(
-  AIRuntimeService.isInitialized(),
-  false,
+    const prediction =
+      AIRuntimeService.getIntentPrediction(
+        'isso é uma pergunta?',
+      );
+
+    assert.ok(prediction);
+
+    assert.equal(
+      typeof prediction.intent,
+      'string',
+    );
+
+    assert.equal(
+      typeof prediction.confidence,
+      'number',
+    );
+
+    assert.ok(
+      prediction.confidence >= 0,
+    );
+
+    assert.ok(
+      prediction.confidence <= 1,
+    );
+  },
 );
 
-AIRuntimeService.initialize();
+test(
+  'AIRuntimeService expõe preview do treinamento semântico',
+  () => {
+    AIRuntimeService.initialize();
 
-assert.equal(
-  AIRuntimeService.isInitialized(),
-  true,
+    const feedbackCount =
+      SemanticFeedbackService.getCount();
+
+    if (feedbackCount === 0) {
+      assert.throws(
+        () =>
+          AIRuntimeService
+            .previewSemanticTraining(),
+        /feedback semântico/i,
+      );
+
+      return;
+    }
+
+    const preview =
+      AIRuntimeService
+        .previewSemanticTraining();
+
+    assert.ok(preview);
+
+    assert.equal(
+      preview.feedbackCount,
+      feedbackCount,
+    );
+
+    assert.equal(
+      preview.trainingBaseCount,
+      preview.split.train.length,
+    );
+
+    assert.equal(
+      preview.validationCount,
+      preview.split.validation.length,
+    );
+
+    assert.equal(
+      preview.testCount,
+      preview.split.test.length,
+    );
+
+    assert.ok(
+      preview.split.train.length > 0,
+    );
+
+    assert.ok(
+      preview.split.validation.length > 0,
+    );
+
+    assert.ok(
+      preview.split.test.length > 0,
+    );
+  },
 );
 
-},
+test(
+  'AIRuntimeService pode preparar o ciclo semântico com segurança',
+  () => {
+    AIRuntimeService.initialize();
+
+    const feedbackCount =
+      SemanticFeedbackService.getCount();
+
+    if (feedbackCount === 0) {
+      assert.throws(
+        () =>
+          AIRuntimeService
+            .trainSemanticFromFeedback(),
+        /feedback semântico/i,
+      );
+
+      return;
+    }
+
+    const result =
+      AIRuntimeService
+        .trainSemanticFromFeedback();
+
+    assert.ok(result);
+
+    assert.ok(
+      result.context,
+    );
+
+    assert.ok(
+      result.safeFineTuning,
+    );
+
+    assert.equal(
+      typeof result.safeFineTuning.rolledBack,
+      'boolean',
+    );
+
+    assert.equal(
+      typeof result.safeFineTuning.previousActiveVersion,
+      'number',
+    );
+
+    assert.equal(
+      typeof result.safeFineTuning.finalActiveVersion,
+      'number',
+    );
+  },
+);
+
+test(
+  'AIRuntimeService pode ser reinicializado',
+  () => {
+    AIRuntimeService.initialize();
+
+    assert.equal(
+      AIRuntimeService.isInitialized(),
+      true,
+    );
+
+    AIRuntimeService.reset();
+
+    assert.equal(
+      AIRuntimeService.isInitialized(),
+      false,
+    );
+
+    AIRuntimeService.initialize();
+
+    assert.equal(
+      AIRuntimeService.isInitialized(),
+      true,
+    );
+  },
 );

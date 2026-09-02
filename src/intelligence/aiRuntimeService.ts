@@ -30,9 +30,32 @@ import {
   type ModelManagerStatus,
 } from './modelManager';
 
+import {
+  SemanticFeedbackTrainingService,
+  type SemanticFeedbackTrainingOptions,
+  type SemanticFeedbackTrainingContext,
+} from './semanticFeedbackTrainingService';
+
+import {
+  SemanticSafeFineTuningService,
+  type SemanticSafeFineTuningResult,
+} from './semanticSafeFineTuningService';
+
+import type {
+  SemanticPromotionThresholds,
+} from './semanticModelPromotionService';
+
 export interface AIRuntimePrediction {
   prediction: IntentPrediction;
   activeLearning: ActiveLearningScore;
+}
+
+export interface AIRuntimeSemanticTrainingResult {
+  safeFineTuning:
+    SemanticSafeFineTuningResult;
+
+  context:
+    SemanticFeedbackTrainingContext;
 }
 
 export interface AIRuntimeStatus {
@@ -214,6 +237,69 @@ export class AIRuntimeService {
     this.ensureInitialized();
 
     IntentLearningService.retrain();
+  }
+
+  /**
+   * Inicia um ciclo de fine-tuning semântico
+   * controlado pelo AIRuntime.
+   *
+   * Fluxo:
+   *
+   * feedback
+   *   ↓
+   * split disjunto
+   *   ↓
+   * train + feedback
+   *   ↓
+   * fine-tuning
+   *   ↓
+   * promotion gate
+   *   ↓
+   * ativação OU rollback
+   */
+  public static trainSemanticFromFeedback(
+    options: SemanticFeedbackTrainingOptions = {},
+    thresholds: Partial<SemanticPromotionThresholds> = {},
+  ): AIRuntimeSemanticTrainingResult {
+    this.ensureInitialized();
+
+    const preparation =
+      SemanticFeedbackTrainingService
+        .prepareTraining(
+          options,
+        );
+
+    const safeFineTuning =
+      new SemanticSafeFineTuningService();
+
+    const result =
+      safeFineTuning.run(
+        preparation.input,
+        thresholds,
+      );
+
+    return {
+      safeFineTuning:
+        result,
+
+      context:
+        preparation.context,
+    };
+  }
+
+  /**
+   * Retorna como o próximo treinamento semântico
+   * ficará dividido, sem executar fine-tuning.
+   */
+  public static previewSemanticTraining(
+    options: SemanticFeedbackTrainingOptions = {},
+  ): SemanticFeedbackTrainingContext {
+    this.ensureInitialized();
+
+    return SemanticFeedbackTrainingService
+      .preview(
+        options,
+      );
   }
 
   /**

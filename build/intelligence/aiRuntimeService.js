@@ -7,6 +7,8 @@ const intentCandidateService_1 = require("./intentCandidateService");
 const intentFeedbackService_1 = require("./intentFeedbackService");
 const activeLearningService_1 = require("./activeLearningService");
 const modelManager_1 = require("./modelManager");
+const semanticFeedbackTrainingService_1 = require("./semanticFeedbackTrainingService");
+const semanticSafeFineTuningService_1 = require("./semanticSafeFineTuningService");
 class AIRuntimeService {
     static initialize() {
         if (this.initialized) {
@@ -94,6 +96,44 @@ class AIRuntimeService {
     static retrainIntentModel() {
         this.ensureInitialized();
         intentLearningService_1.IntentLearningService.retrain();
+    }
+    /**
+     * Inicia um ciclo de fine-tuning semântico
+     * controlado pelo AIRuntime.
+     *
+     * Fluxo:
+     *
+     * feedback
+     *   ↓
+     * split disjunto
+     *   ↓
+     * train + feedback
+     *   ↓
+     * fine-tuning
+     *   ↓
+     * promotion gate
+     *   ↓
+     * ativação OU rollback
+     */
+    static trainSemanticFromFeedback(options = {}, thresholds = {}) {
+        this.ensureInitialized();
+        const preparation = semanticFeedbackTrainingService_1.SemanticFeedbackTrainingService
+            .prepareTraining(options);
+        const safeFineTuning = new semanticSafeFineTuningService_1.SemanticSafeFineTuningService();
+        const result = safeFineTuning.run(preparation.input, thresholds);
+        return {
+            safeFineTuning: result,
+            context: preparation.context,
+        };
+    }
+    /**
+     * Retorna como o próximo treinamento semântico
+     * ficará dividido, sem executar fine-tuning.
+     */
+    static previewSemanticTraining(options = {}) {
+        this.ensureInitialized();
+        return semanticFeedbackTrainingService_1.SemanticFeedbackTrainingService
+            .preview(options);
     }
     /**
      * Persiste explicitamente os modelos semânticos

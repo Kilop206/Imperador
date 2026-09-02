@@ -8,6 +8,7 @@ import {
 
 import {
   SEMANTIC_SENTENCE_DATASET,
+  type SemanticSentencePair,
 } from './semanticSentenceDataset';
 
 import {
@@ -16,33 +17,14 @@ import {
 } from './semanticDatasetSplit';
 
 import type {
+  SemanticFineTuningInput,
   SemanticFineTuningResult,
 } from './semanticFineTuningService';
 
 export interface SemanticFeedbackTrainingOptions {
-  /**
-   * Seed usada para gerar sempre a mesma divisão
-   * do dataset-base.
-   */
   seed?: number;
-
-  /**
-   * Quantidade mínima de feedbacks necessária
-   * para iniciar um treinamento.
-   *
-   * Padrão: 1.
-   */
   minimumFeedbackExamples?: number;
-
-  /**
-   * Proporção do dataset-base usada no treino
-   * apenas para fins de referência/documentação.
-   *
-   * O treino efetivo é controlado pelo ModelManager,
-   * que mantém o dataset-base completo + feedback.
-   */
   trainRatio?: number;
-
   validationRatio?: number;
 }
 
@@ -52,6 +34,11 @@ export interface SemanticFeedbackTrainingContext {
   validationCount: number;
   testCount: number;
   split: SemanticDatasetSplit;
+}
+
+export interface SemanticFeedbackTrainingPreparation {
+  input: SemanticFineTuningInput;
+  context: SemanticFeedbackTrainingContext;
 }
 
 export interface SemanticFeedbackTrainingResult {
@@ -68,23 +55,11 @@ const DEFAULT_OPTIONS:
   };
 
 export class SemanticFeedbackTrainingService {
-  /**
-   * Executa um treinamento supervisionado usando
-   * os feedbacks semânticos acumulados.
-   *
-   * O dataset-base é usado como núcleo do treinamento
-   * e seus próprios dados são divididos para validation/test.
-   *
-   * Os feedbacks permanecem exclusivamente no conjunto
-   * de treinamento fornecido pelo ModelManager.
-   */
-  static train(
+  static prepareTraining(
     options: SemanticFeedbackTrainingOptions = {},
-  ): SemanticFeedbackTrainingResult {
+  ): SemanticFeedbackTrainingPreparation {
     const resolved =
-      this.resolveOptions(
-        options,
-      );
+      this.resolveOptions(options);
 
     const feedback =
       SemanticFeedbackService
@@ -105,39 +80,40 @@ export class SemanticFeedbackTrainingService {
         {
           trainRatio:
             resolved.trainRatio,
-
           validationRatio:
             resolved.validationRatio,
-
           seed:
             resolved.seed,
         },
       );
 
-    /*
-     * ModelManager.fineTuneFromFeedback()
-     * mantém o dataset-base completo + feedback
-     * no treinamento, mas recebe explicitamente
-     * os conjuntos de validação e teste.
-     *
-     * Assim os dados utilizados como validation/test
-     * não são os próprios feedbacks supervisionados.
-     */
-    const result =
-      ModelManager
-        .fineTuneFromFeedback(
-          split.validation,
-          split.test,
-        );
+    const trainingDataset:
+      SemanticSentencePair[] = [
+      ...split.train,
+      ...feedback,
+    ];
+
+    const input:
+      SemanticFineTuningInput = {
+      originalDataset:
+        trainingDataset,
+
+      validationDataset:
+        split.validation,
+
+      testDataset:
+        split.test,
+    };
 
     return {
-      result,
+      input,
+
       context: {
         feedbackCount:
           feedback.length,
 
         trainingBaseCount:
-          SEMANTIC_SENTENCE_DATASET.length,
+          split.train.length,
 
         validationCount:
           split.validation.length,
@@ -150,75 +126,39 @@ export class SemanticFeedbackTrainingService {
     };
   }
 
-  /**
-   * Retorna informações sobre como o próximo treinamento
-   * será estruturado, sem iniciar o treinamento.
-   */
-  static preview(
+  static train(
     options: SemanticFeedbackTrainingOptions = {},
-  ): SemanticFeedbackTrainingContext {
-    const resolved =
-      this.resolveOptions(
+  ): SemanticFeedbackTrainingResult {
+    const preparation =
+      this.prepareTraining(
         options,
       );
 
-    const feedback =
-      SemanticFeedbackService
-        .getTrainingPairs();
-
-    if (
-      feedback.length <
-      resolved.minimumFeedbackExamples
-    ) {
-      throw new Error(
-        `São necessários pelo menos ${resolved.minimumFeedbackExamples} exemplos de feedback semântico para iniciar o treinamento. Atualmente existem ${feedback.length}.`,
-      );
-    }
-
-    const split =
-      splitSemanticDataset(
-        SEMANTIC_SENTENCE_DATASET,
-        {
-          trainRatio:
-            resolved.trainRatio,
-
-          validationRatio:
-            resolved.validationRatio,
-
-          seed:
-            resolved.seed,
-        },
+    const result =
+      ModelManager.fineTune(
+        preparation.input,
       );
 
     return {
-      feedbackCount:
-        feedback.length,
-
-      trainingBaseCount:
-        SEMANTIC_SENTENCE_DATASET.length,
-
-      validationCount:
-        split.validation.length,
-
-      testCount:
-        split.test.length,
-
-      split,
+      result,
+      context:
+        preparation.context,
     };
   }
 
-  /**
-   * Retorna quantos feedbacks supervisionados existem.
-   */
+  static preview(
+    options: SemanticFeedbackTrainingOptions = {},
+  ): SemanticFeedbackTrainingContext {
+    return this.prepareTraining(
+      options,
+    ).context;
+  }
+
   static getFeedbackCount(): number {
     return SemanticFeedbackService
       .getCount();
   }
 
-  /**
-   * Indica se já existe quantidade suficiente
-   * de feedback para iniciar treinamento.
-   */
   static canTrain(
     minimumFeedbackExamples = 1,
   ): boolean {
@@ -244,19 +184,12 @@ export class SemanticFeedbackTrainingService {
     );
   }
 
-  /**
-   * Retorna o último modelo ativo conhecido
-   * pelo ModelManager.
-   */
   static getActiveVersion():
     number | null {
     return ModelManager
       .getActiveVersion();
   }
 
-  /**
-   * Retorna um relatório resumido do treinamento.
-   */
   static formatResult(
     training: SemanticFeedbackTrainingResult,
   ): string {
@@ -268,7 +201,8 @@ export class SemanticFeedbackTrainingService {
     const lines = [
       '=== Treinamento por Feedback Semântico ===',
       `Feedbacks utilizados: ${context.feedbackCount}`,
-      `Dataset-base: ${context.trainingBaseCount} pares`,
+      `Dataset-base no treino: ${context.trainingBaseCount} pares`,
+      `Total efetivo de treino: ${result.totalTrainingPairs} pares`,
       `Validação: ${context.validationCount} pares`,
       `Teste: ${context.testCount} pares`,
       '',
@@ -276,7 +210,7 @@ export class SemanticFeedbackTrainingService {
       `Pares originais: ${result.originalPairs}`,
       `Hard negatives: ${result.hardNegativePairs}`,
       `Augmentation: +${result.augmentedPairs}`,
-      `Total de treino: ${result.totalTrainingPairs}`,
+      `Total de treino reportado: ${result.totalTrainingPairs}`,
       '',
       `F1 validação anterior: ${result.previousValidationMetrics.f1.toFixed(4)}`,
       `F1 validação candidata: ${result.candidateValidationMetrics.f1.toFixed(4)}`,
