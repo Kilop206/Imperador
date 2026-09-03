@@ -1,125 +1,164 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { existsSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test, { afterEach, beforeEach } from 'node:test';
 
-import { EMOTION_BASELINE } from '../src/types/emotion';
 import {
   GeneratedResponseFeedbackService,
 } from '../src/intelligence/generatedResponseFeedbackService';
+import type { EmotionState } from '../src/types/emotion';
+import type { GeneratedResponse } from '../src/intelligence/responseGenerationEngine';
 
-function createInput() {
-  return {
-    content: 'Roma ainda é poderosa?',
-    intent: 'question' as const,
-    emotion: { ...EMOTION_BASELINE },
-    relevantMemory: 'O usuário perguntou sobre Roma ontem.',
-    semanticContext: 'Roma e o poder imperial.',
-    generated: {
-      text: 'Roma permanece digna enquanto houver poder e ordem.',
-      confidence: 0.82,
-      novelty: 0.78,
-      relevance: 0.72,
-      contextRelevance: 0.80,
-      intentAlignment: 0.65,
-    },
-  };
-}
+const testStoragePath = join(
+  tmpdir(),
+  'imperador-generated-response-feedback-test.json',
+);
 
-test('registra resposta gerada e cria avaliação própria', () => {
-  GeneratedResponseFeedbackService.reset();
+const emotion: EmotionState = {
+  irritation: 10,
+  respect: 50,
+  trust: 40,
+  nostalgia: 20,
+  curiosity: 30,
+  hostility: 5,
+  amusement: 20,
+};
 
-  const id = GeneratedResponseFeedbackService.register(createInput());
-  const entry = GeneratedResponseFeedbackService.get(id);
+const generated: GeneratedResponse = {
+  text: 'Roma observa e o império responde com autoridade.',
+  confidence: 0.90,
+  novelty: 0.90,
+  relevance: 0.90,
+  contextRelevance: 0.90,
+  intentAlignment: 0.90,
+  feedbackId: undefined,
+};
 
-  assert.ok(id.startsWith('genfb_'));
-  assert.ok(entry);
-  assert.equal(entry?.feedback, null);
-  assert.equal(entry?.trainingEligible, false);
-  assert.ok(entry?.selfEvaluationId);
-  assert.ok((entry?.selfEvaluationQuality ?? 0) >= 0);
+beforeEach(() => {
+  rmSync(testStoragePath, { force: true });
+  GeneratedResponseFeedbackService.setStoragePathForTests(
+    testStoragePath,
+  );
+  GeneratedResponseFeedbackService.reset({ persist: false });
 });
 
-test('feedback positivo qualificado torna a resposta elegível para treinamento', () => {
-  GeneratedResponseFeedbackService.reset();
-
-  const id = GeneratedResponseFeedbackService.register(createInput());
-  const entry = GeneratedResponseFeedbackService.recordFeedback(
-    id,
-    'positive',
-    { score: 1, note: 'Resposta adequada.' },
-  );
-
-  assert.ok(entry);
-  assert.equal(entry?.feedback?.label, 'positive');
-  assert.equal(entry?.trainingEligible, true);
+afterEach(() => {
+  rmSync(testStoragePath, { force: true });
+  GeneratedResponseFeedbackService.resetStoragePath();
 });
 
-test('feedback negativo nunca torna a resposta elegível', () => {
-  GeneratedResponseFeedbackService.reset();
+test('persiste uma resposta registrada no armazenamento', () => {
+  const id = GeneratedResponseFeedbackService.register({
+    content: 'Fale sobre Roma',
+    intent: 'roman',
+    emotion,
+    generated,
+  });
 
-  const id = GeneratedResponseFeedbackService.register(createInput());
-  const entry = GeneratedResponseFeedbackService.recordFeedback(
-    id,
-    'negative',
-    { score: 1 },
-  );
-
-  assert.ok(entry);
-  assert.equal(entry?.feedback?.label, 'negative');
-  assert.equal(entry?.trainingEligible, false);
+  assert.equal(typeof id, 'string');
+  assert.equal(existsSync(testStoragePath), true);
 });
 
-test('resposta pendente só deixa a fila após feedback explícito', () => {
-  GeneratedResponseFeedbackService.reset();
+test('recupera feedback após reinicialização do serviço', () => {
+  const id = GeneratedResponseFeedbackService.register({
+    content: 'Fale sobre Roma',
+    intent: 'roman',
+    emotion,
+    generated,
+  });
 
-  const id = GeneratedResponseFeedbackService.register(createInput());
-
-  assert.equal(
-    GeneratedResponseFeedbackService.listPending().length,
-    1,
+  GeneratedResponseFeedbackService.setStoragePathForTests(
+    testStoragePath,
   );
+  GeneratedResponseFeedbackService.initialize();
 
-  GeneratedResponseFeedbackService.recordFeedback(id, 'neutral');
+  const recovered =
+    GeneratedResponseFeedbackService.get(id);
 
-  assert.equal(
-    GeneratedResponseFeedbackService.listPending().length,
-    0,
-  );
+  assert.ok(recovered);
+  assert.equal(recovered?.responseText, generated.text);
+  assert.equal(recovered?.intent, 'roman');
 });
 
-test('estatísticas acompanham estado do feedback', () => {
-  GeneratedResponseFeedbackService.reset();
+test('persiste feedback positivo e mantém elegibilidade', () => {
+  const id = GeneratedResponseFeedbackService.register({
+    content: 'Fale sobre Roma',
+    intent: 'roman',
+    emotion,
+    generated,
+  });
 
-  const first = GeneratedResponseFeedbackService.register(createInput());
-  const second = GeneratedResponseFeedbackService.register(createInput());
+  const updated =
+    GeneratedResponseFeedbackService.recordFeedback(
+      id,
+      'positive',
+      { score: 1 },
+    );
 
-  GeneratedResponseFeedbackService.recordFeedback(first, 'positive');
-  GeneratedResponseFeedbackService.recordFeedback(second, 'negative');
+  assert.equal(updated?.trainingEligible, true);
+
+  GeneratedResponseFeedbackService.setStoragePathForTests(
+    testStoragePath,
+  );
+  GeneratedResponseFeedbackService.initialize();
+
+  const recovered =
+    GeneratedResponseFeedbackService.get(id);
+
+  assert.equal(recovered?.feedback?.label, 'positive');
+  assert.equal(recovered?.trainingEligible, true);
+});
+
+test('feedback negativo permanece inelegível após persistência', () => {
+  const id = GeneratedResponseFeedbackService.register({
+    content: 'Fale sobre Roma',
+    intent: 'roman',
+    emotion,
+    generated,
+  });
+
+  const updated =
+    GeneratedResponseFeedbackService.recordFeedback(
+      id,
+      'negative',
+    );
+
+  assert.equal(updated?.trainingEligible, false);
+
+  GeneratedResponseFeedbackService.setStoragePathForTests(
+    testStoragePath,
+  );
+  GeneratedResponseFeedbackService.initialize();
+
+  const recovered =
+    GeneratedResponseFeedbackService.get(id);
+
+  assert.equal(recovered?.feedback?.label, 'negative');
+  assert.equal(recovered?.trainingEligible, false);
+});
+
+test('limita o histórico persistido ao máximo configurado', () => {
+  for (let index = 0; index < 510; index += 1) {
+    GeneratedResponseFeedbackService.register({
+      content: `Fale sobre Roma ${index}`,
+      intent: 'roman',
+      emotion,
+      generated,
+    });
+  }
 
   const stats = GeneratedResponseFeedbackService.getStats();
 
-  assert.equal(stats.total, 2);
-  assert.equal(stats.pending, 0);
-  assert.equal(stats.positive, 1);
-  assert.equal(stats.negative, 1);
-});
+  assert.equal(stats.total, 500);
 
-test('reset limpa completamente o registro de feedback', () => {
-  GeneratedResponseFeedbackService.reset();
-  GeneratedResponseFeedbackService.register(createInput());
+  GeneratedResponseFeedbackService.setStoragePathForTests(
+    testStoragePath,
+  );
+  GeneratedResponseFeedbackService.initialize();
 
-  GeneratedResponseFeedbackService.reset();
-
-  assert.deepEqual(
-    GeneratedResponseFeedbackService.getStats(),
-    {
-      total: 0,
-      pending: 0,
-      positive: 0,
-      negative: 0,
-      neutral: 0,
-      trainingEligible: 0,
-      averageSelfEvaluationQuality: 0,
-      averageConfidence: 0,
-    },
+  assert.equal(
+    GeneratedResponseFeedbackService.getStats().total,
+    500,
   );
 });

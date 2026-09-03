@@ -1,3 +1,13 @@
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, resolve } from 'node:path';
+
 import type { EmotionState } from '../types/emotion';
 import type { MessageIntent } from '../services/textAnalyzer';
 import {
@@ -58,12 +68,38 @@ export interface GeneratedResponseFeedbackStats {
 const TRAINING_QUALITY_THRESHOLD = 0.70;
 const MAX_ENTRIES = 500;
 
+const DEFAULT_STORAGE_PATH = resolve(
+  process.cwd(),
+  'data',
+  'generated_response_feedback.json',
+);
+
+const STORAGE_VERSION = 1;
+
+interface PersistedFeedbackStore {
+  version: number;
+  entries: GeneratedResponseFeedbackEntry[];
+}
+
 export class GeneratedResponseFeedbackService {
   private static entries: GeneratedResponseFeedbackEntry[] = [];
+  private static initialized = false;
+  private static storagePath = DEFAULT_STORAGE_PATH;
+
+  public static initialize(): void {
+    if (this.initialized) {
+      return;
+    }
+
+    this.loadFromDisk();
+    this.initialized = true;
+  }
 
   public static register(
     input: GeneratedResponseFeedbackInput,
   ): string {
+    this.ensureInitialized();
+
     const now = Date.now();
     const id = `genfb_${now}_${Math.floor(Math.random() * 100000)}`;
 
@@ -97,13 +133,8 @@ export class GeneratedResponseFeedbackService {
     };
 
     this.entries.push(entry);
-
-    if (this.entries.length > MAX_ENTRIES) {
-      this.entries.splice(
-        0,
-        this.entries.length - MAX_ENTRIES,
-      );
-    }
+    this.trimEntries();
+    this.persist();
 
     return id;
   }
@@ -116,6 +147,8 @@ export class GeneratedResponseFeedbackService {
       note?: string | null;
     } = {},
   ): GeneratedResponseFeedbackEntry | null {
+    this.ensureInitialized();
+
     const entry = this.entries.find(
       candidate => candidate.id === id,
     );
@@ -146,38 +179,16 @@ export class GeneratedResponseFeedbackService {
         entry.selfEvaluationQuality >= TRAINING_QUALITY_THRESHOLD
       );
 
+    this.persist();
+
     return this.cloneEntry(entry);
-  }
-
-  private static calculateGeneratedQuality(
-    entry: GeneratedResponseFeedbackEntry,
-  ): number {
-    const values = [
-      entry.confidence,
-      entry.novelty,
-      entry.relevance,
-      entry.contextRelevance,
-      entry.intentAlignment,
-    ];
-
-    const validValues = values.filter(value =>
-      Number.isFinite(value),
-    );
-
-    if (validValues.length === 0) {
-      return 0;
-    }
-
-    const average =
-      validValues.reduce((sum, value) => sum + value, 0) /
-      validValues.length;
-
-    return Math.max(0, Math.min(1, average));
   }
 
   public static get(
     id: string,
   ): GeneratedResponseFeedbackEntry | null {
+    this.ensureInitialized();
+
     const entry = this.entries.find(
       candidate => candidate.id === id,
     );
@@ -188,6 +199,8 @@ export class GeneratedResponseFeedbackService {
   public static listPending(
     limit = 20,
   ): GeneratedResponseFeedbackEntry[] {
+    this.ensureInitialized();
+
     const safeLimit = Math.max(0, Math.floor(limit));
 
     return this.entries
@@ -200,6 +213,8 @@ export class GeneratedResponseFeedbackService {
   public static listTrainingEligible(
     limit = 50,
   ): GeneratedResponseFeedbackEntry[] {
+    this.ensureInitialized();
+
     const safeLimit = Math.max(0, Math.floor(limit));
 
     return this.entries
@@ -210,6 +225,8 @@ export class GeneratedResponseFeedbackService {
   }
 
   public static getStats(): GeneratedResponseFeedbackStats {
+    this.ensureInitialized();
+
     const total = this.entries.length;
 
     if (total === 0) {
@@ -268,8 +285,165 @@ export class GeneratedResponseFeedbackService {
     };
   }
 
-  public static reset(): void {
+  public static setStoragePathForTests(
+    storagePath: string,
+  ): void {
+    this.storagePath = resolve(storagePath);
     this.entries = [];
+    this.initialized = false;
+  }
+
+  public static reset(
+    options: {
+      persist?: boolean;
+    } = {},
+  ): void {
+    this.entries = [];
+    this.initialized = true;
+
+    if (options.persist !== false) {
+      this.persist();
+    }
+  }
+
+  public static resetStoragePath(): void {
+    this.storagePath = DEFAULT_STORAGE_PATH;
+    this.entries = [];
+    this.initialized = false;
+  }
+
+  private static ensureInitialized(): void {
+    if (!this.initialized) {
+      this.initialize();
+    }
+  }
+
+  private static loadFromDisk(): void {
+    this.entries = [];
+
+    if (!existsSync(this.storagePath)) {
+      return;
+    }
+
+    try {
+      const raw = readFileSync(this.storagePath, 'utf8');
+      const parsed: unknown = JSON.parse(raw);
+
+      if (!parsed || typeof parsed !== 'object') {
+        return;
+      }
+
+      const store = parsed as Partial<PersistedFeedbackStore>;
+      if (
+        store.version !== STORAGE_VERSION ||
+        !Array.isArray(store.entries)
+      ) {
+        return;
+      }
+
+      this.entries = store.entries
+        .filter(entry => this.isValidEntry(entry))
+        .slice(-MAX_ENTRIES)
+        .map(entry => this.cloneEntry(entry));
+    } catch {
+      this.entries = [];
+    }
+  }
+
+  private static persist(): void {
+    try {
+      const directory = dirname(this.storagePath);
+      mkdirSync(directory, { recursive: true });
+
+      const temporaryPath = `${this.storagePath}.${process.pid}.${Date.now()}.tmp`;
+      const payload: PersistedFeedbackStore = {
+        version: STORAGE_VERSION,
+        entries: this.entries,
+      };
+
+      writeFileSync(
+        temporaryPath,
+        JSON.stringify(payload, null, 2),
+        'utf8',
+      );
+
+      try {
+        renameSync(temporaryPath, this.storagePath);
+      } catch (error) {
+        try {
+          unlinkSync(temporaryPath);
+        } catch {
+          // Best effort cleanup.
+        }
+
+        throw error;
+      }
+    } catch {
+      // Persistência é uma camada auxiliar. O pipeline em memória continua funcional.
+    }
+  }
+
+  private static trimEntries(): void {
+    if (this.entries.length <= MAX_ENTRIES) {
+      return;
+    }
+
+    this.entries.splice(
+      0,
+      this.entries.length - MAX_ENTRIES,
+    );
+  }
+
+  private static isValidEntry(
+    entry: unknown,
+  ): entry is GeneratedResponseFeedbackEntry {
+    if (!entry || typeof entry !== 'object') {
+      return false;
+    }
+
+    const candidate =
+      entry as Partial<GeneratedResponseFeedbackEntry>;
+
+    return (
+      typeof candidate.id === 'string' &&
+      typeof candidate.createdAt === 'number' &&
+      typeof candidate.content === 'string' &&
+      typeof candidate.responseText === 'string' &&
+      typeof candidate.confidence === 'number' &&
+      typeof candidate.novelty === 'number' &&
+      typeof candidate.relevance === 'number' &&
+      typeof candidate.contextRelevance === 'number' &&
+      typeof candidate.intentAlignment === 'number' &&
+      typeof candidate.selfEvaluationId === 'string' &&
+      typeof candidate.selfEvaluationQuality === 'number' &&
+      typeof candidate.trainingEligible === 'boolean'
+    );
+  }
+
+  private static calculateGeneratedQuality(
+    entry: GeneratedResponseFeedbackEntry,
+  ): number {
+    const values = [
+      entry.confidence,
+      entry.novelty,
+      entry.relevance,
+      entry.contextRelevance,
+      entry.intentAlignment,
+    ];
+
+    const validValues = values.filter(value =>
+      Number.isFinite(value),
+    );
+
+    if (validValues.length === 0) {
+      return 0;
+    }
+
+    const average =
+      validValues.reduce((sum, value) => sum + value, 0) /
+      validValues.length;
+
+    return Math.max(0, Math.min(1, average));
   }
 
   private static defaultScore(
