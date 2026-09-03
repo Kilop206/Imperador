@@ -17,6 +17,16 @@ export interface GeneratedResponse {
   confidence: number;
   novelty: number;
   relevance: number;
+  contextRelevance: number;
+  intentAlignment: number;
+}
+
+export interface ResponseGenerationContextProfile {
+  inputTokens: string[];
+  memoryTokens: string[];
+  semanticTokens: string[];
+  priorityTokens: Set<string>;
+  styleTokens: Set<string>;
 }
 
 type Token = string;
@@ -27,15 +37,64 @@ const END = '<END>';
 const MAX_GENERATION_ATTEMPTS = 64;
 const MIN_TOKENS = 5;
 const MAX_TOKENS = 32;
+const CONTEXT_TOKEN_MULTIPLIER = 2.2;
+const STYLE_TOKEN_MULTIPLIER = 1.35;
+const REPEAT_TOKEN_PENALTY = 0.18;
 
 const STOP_WORDS = new Set([
   'a', 'o', 'as', 'os', 'um', 'uma', 'uns', 'umas',
   'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na',
   'nos', 'nas', 'por', 'para', 'com', 'sem', 'e', 'ou',
-  'que', 'se', 'eu', 'você', 'vc', 'isso', 'isto',
+  'que', 'se', 'eu', 'voce', 'vc', 'isso', 'isto',
   'aquilo', 'ele', 'ela', 'eles', 'elas', 'me', 'te', 'lhe',
-  'já', 'não', 'sim', 'como', 'mais', 'muito',
+  'ja', 'nao', 'sim', 'como', 'mais', 'muito',
 ]);
+
+const INTENT_SEEDS: Partial<Record<MessageIntent, string[]>> = {
+  greeting: ['voce', 'imperador', 'roma'],
+  farewell: ['imperio', 'roma', 'voce'],
+  aggressive: ['voce', 'nao', 'interessante'],
+  compliment: ['finalmente', 'voce', 'bom'],
+  humor: ['interessante', 'roma', 'diversao'],
+  serious: ['ha', 'imperio', 'roma'],
+  nostalgic: ['passado', 'memorias', 'historia'],
+  philosophical: ['existencia', 'verdade', 'poder'],
+  roman: ['roma', 'imperio', 'senado'],
+  question: ['voce', 'tiberio', 'imperador'],
+  neutral: ['voce', 'imperio', 'roma'],
+};
+
+const EMOTION_STYLE_TOKENS: Array<{
+  source: keyof EmotionState;
+  threshold: number;
+  tokens: string[];
+}> = [
+  {
+    source: 'hostility',
+    threshold: 55,
+    tokens: ['nao', 'poder', 'ordem', 'inferior', 'insolente'],
+  },
+  {
+    source: 'amusement',
+    threshold: 55,
+    tokens: ['hahaha', 'interessante', 'diversao', 'ridiculo', 'curioso'],
+  },
+  {
+    source: 'nostalgia',
+    threshold: 55,
+    tokens: ['passado', 'memorias', 'roma', 'historia', 'outrora'],
+  },
+  {
+    source: 'curiosity',
+    threshold: 55,
+    tokens: ['curioso', 'interessante', 'verdade', 'descobrir', 'explicar'],
+  },
+  {
+    source: 'respect',
+    threshold: 70,
+    tokens: ['respeito', 'imperio', 'honra', 'digno', 'grande'],
+  },
+];
 
 export class ResponseGenerationEngine {
   private readonly transitions: TransitionMap = new Map();
@@ -67,18 +126,25 @@ export class ResponseGenerationEngine {
     return this.vocabulary.size;
   }
 
+  public inspectContext(
+    context: ResponseGenerationContext,
+  ): ResponseGenerationContextProfile {
+    this.initialize();
+
+    return this.buildContextProfile(context);
+  }
+
   public generate(
     context: ResponseGenerationContext,
   ): GeneratedResponse | null {
     this.initialize();
 
-    const normalizedInput = this.normalize(context.content);
-    const inputTokens = this.meaningfulTokens(normalizedInput);
-    const seed = this.chooseSeed(inputTokens, context.intent);
+    const profile = this.buildContextProfile(context);
+    const seed = this.chooseSeed(profile, context.intent);
     const generated: string[] = [];
 
     for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
-      const candidate = this.generateSentence(seed);
+      const candidate = this.generateSentence(seed, profile);
 
       if (!candidate || generated.includes(candidate)) {
         continue;
@@ -112,7 +178,7 @@ export class ResponseGenerationEngine {
     }
 
     const scored = generated
-      .map(text => this.score(text, context))
+      .map(text => this.score(text, context, profile))
       .sort((a, b) => b.confidence - a.confidence);
 
     const best = scored[0];
@@ -122,6 +188,79 @@ export class ResponseGenerationEngine {
     }
 
     return best;
+  }
+
+  private buildContextProfile(
+    context: ResponseGenerationContext,
+  ): ResponseGenerationContextProfile {
+    const inputTokens = this.meaningfulTokens(
+      this.normalize(context.content),
+    );
+
+    const memoryTokens = context.relevantMemory
+      ? this.meaningfulTokens(this.normalize(context.relevantMemory))
+      : [];
+
+    const semanticTokens = context.semanticContext
+      ? this.meaningfulTokens(this.normalize(context.semanticContext))
+      : [];
+
+    const priorityTokens = new Set<string>();
+
+    for (const token of inputTokens) {
+      if (this.vocabulary.has(token)) {
+        priorityTokens.add(token);
+      }
+    }
+
+    for (const token of memoryTokens) {
+      if (this.vocabulary.has(token)) {
+        priorityTokens.add(token);
+      }
+    }
+
+    for (const token of semanticTokens) {
+      if (this.vocabulary.has(token)) {
+        priorityTokens.add(token);
+      }
+    }
+
+    const styleTokens = new Set<string>();
+
+    for (const token of INTENT_SEEDS[context.intent] ?? []) {
+      const normalized = this.normalize(token);
+
+      if (this.vocabulary.has(normalized)) {
+        styleTokens.add(normalized);
+      }
+    }
+
+    for (const group of EMOTION_STYLE_TOKENS) {
+      const value = Math.max(
+        0,
+        Math.min(100, context.emotion[group.source]),
+      );
+
+      if (value < group.threshold) {
+        continue;
+      }
+
+      for (const token of group.tokens) {
+        const normalized = this.normalize(token);
+
+        if (this.vocabulary.has(normalized)) {
+          styleTokens.add(normalized);
+        }
+      }
+    }
+
+    return {
+      inputTokens,
+      memoryTokens,
+      semanticTokens,
+      priorityTokens,
+      styleTokens,
+    };
   }
 
   private collectTrainingSentences(): string[] {
@@ -201,7 +340,10 @@ export class ResponseGenerationEngine {
     }
   }
 
-  private generateSentence(seed: string | null): string | null {
+  private generateSentence(
+    seed: string | null,
+    profile: ResponseGenerationContextProfile,
+  ): string | null {
     let current = START;
     const tokens: string[] = [];
 
@@ -211,7 +353,11 @@ export class ResponseGenerationEngine {
     }
 
     while (tokens.length < MAX_TOKENS) {
-      const next = this.sampleNext(current);
+      const next = this.sampleNext(
+        current,
+        profile,
+        tokens,
+      );
 
       if (!next || next === END) {
         break;
@@ -232,107 +378,215 @@ export class ResponseGenerationEngine {
     return this.detokenize(tokens);
   }
 
-  private sampleNext(current: string): string | null {
+  private sampleNext(
+    current: string,
+    profile: ResponseGenerationContextProfile,
+    existingTokens: string[],
+  ): string | null {
     const nextMap = this.transitions.get(current);
 
     if (!nextMap || nextMap.size === 0) {
       return null;
     }
 
+    const existingTokenCounts = new Map<string, number>();
+
+    for (const token of existingTokens) {
+      existingTokenCounts.set(
+        token,
+        (existingTokenCounts.get(token) ?? 0) + 1,
+      );
+    }
+
+    const weightedCandidates: Array<{
+      token: string;
+      weight: number;
+    }> = [];
+
     let total = 0;
 
-    for (const count of nextMap.values()) {
-      total += count;
+    for (const [token, count] of nextMap.entries()) {
+      let weight = count;
+
+      if (profile.priorityTokens.has(token)) {
+        weight *= CONTEXT_TOKEN_MULTIPLIER;
+      }
+
+      if (profile.styleTokens.has(token)) {
+        weight *= STYLE_TOKEN_MULTIPLIER;
+      }
+
+      const repetitions = existingTokenCounts.get(token) ?? 0;
+
+      if (repetitions > 0) {
+        weight *= Math.pow(REPEAT_TOKEN_PENALTY, repetitions);
+      }
+
+      if (weight <= 0) {
+        continue;
+      }
+
+      weightedCandidates.push({ token, weight });
+      total += weight;
+    }
+
+    if (weightedCandidates.length === 0 || total <= 0) {
+      return null;
     }
 
     let target = Math.random() * total;
 
-    for (const [token, count] of nextMap.entries()) {
-      target -= count;
+    for (const candidate of weightedCandidates) {
+      target -= candidate.weight;
+
+      if (target <= 0) {
+        return candidate.token;
+      }
+    }
+
+    return weightedCandidates[weightedCandidates.length - 1]?.token ?? null;
+  }
+
+  private chooseSeed(
+    profile: ResponseGenerationContextProfile,
+    intent: MessageIntent,
+  ): string | null {
+    const ranked: Array<{ token: string; weight: number }> = [];
+
+    for (const token of profile.inputTokens) {
+      if (this.vocabulary.has(token) && !STOP_WORDS.has(token)) {
+        ranked.push({ token, weight: 4 });
+      }
+    }
+
+    for (const token of profile.memoryTokens) {
+      if (this.vocabulary.has(token) && !STOP_WORDS.has(token)) {
+        ranked.push({ token, weight: 3 });
+      }
+    }
+
+    for (const token of profile.semanticTokens) {
+      if (this.vocabulary.has(token) && !STOP_WORDS.has(token)) {
+        ranked.push({ token, weight: 2.5 });
+      }
+    }
+
+    const intentSeeds = INTENT_SEEDS[intent] ?? [];
+
+    for (const seed of intentSeeds) {
+      const normalized = this.normalize(seed);
+
+      if (this.vocabulary.has(normalized) && !STOP_WORDS.has(normalized)) {
+        ranked.push({ token: normalized, weight: 2 });
+      }
+    }
+
+    if (ranked.length === 0) {
+      return null;
+    }
+
+    const deduplicated = new Map<string, number>();
+
+    for (const candidate of ranked) {
+      deduplicated.set(
+        candidate.token,
+        Math.max(
+          deduplicated.get(candidate.token) ?? 0,
+          candidate.weight,
+        ),
+      );
+    }
+
+    let total = 0;
+
+    for (const weight of deduplicated.values()) {
+      total += weight;
+    }
+
+    let target = Math.random() * total;
+
+    for (const [token, weight] of deduplicated.entries()) {
+      target -= weight;
 
       if (target <= 0) {
         return token;
       }
     }
 
-    return nextMap.keys().next().value ?? null;
-  }
-
-  private chooseSeed(
-    inputTokens: string[],
-    intent: MessageIntent,
-  ): string | null {
-    const candidates = inputTokens
-      .filter(token => this.vocabulary.has(token))
-      .filter(token => !STOP_WORDS.has(token));
-
-    if (candidates.length > 0) {
-      return candidates[Math.floor(Math.random() * candidates.length)];
-    }
-
-    const intentSeeds: Partial<Record<MessageIntent, string[]>> = {
-      greeting: ['você', 'imperador', 'roma'],
-      farewell: ['império', 'roma', 'você'],
-      aggressive: ['você', 'não', 'interessante'],
-      compliment: ['finalmente', 'você', 'bom'],
-      humor: ['interessante', 'roma', 'diversão'],
-      serious: ['há', 'império', 'roma'],
-      nostalgic: ['passado', 'memórias', 'história'],
-      philosophical: ['existência', 'verdade', 'poder'],
-      roman: ['roma', 'império', 'senado'],
-      question: ['você', 'tibério', 'imperador'],
-      neutral: ['você', 'império', 'roma'],
-    };
-
-    const seeds = (intentSeeds[intent] ?? [])
-      .filter(seed => this.vocabulary.has(seed));
-
-    if (seeds.length === 0) {
-      return null;
-    }
-
-    return seeds[Math.floor(Math.random() * seeds.length)];
+    return deduplicated.keys().next().value ?? null;
   }
 
   private score(
     text: string,
     context: ResponseGenerationContext,
+    profile: ResponseGenerationContextProfile,
   ): GeneratedResponse {
     const normalizedText = this.normalize(text);
-    const inputTokens = new Set(
-      this.meaningfulTokens(this.normalize(context.content)),
-    );
     const outputTokens = new Set(
       this.meaningfulTokens(normalizedText),
     );
 
-    let overlap = 0;
+    const inputTokens = new Set(profile.inputTokens);
+
+    let inputOverlap = 0;
 
     for (const token of inputTokens) {
       if (outputTokens.has(token)) {
-        overlap += 1;
+        inputOverlap += 1;
       }
     }
 
     const relevance = inputTokens.size === 0
       ? 0.45
-      : Math.min(1, overlap / Math.max(1, Math.min(inputTokens.size, 4)));
+      : Math.min(
+          1,
+          inputOverlap / Math.max(1, Math.min(inputTokens.size, 4)),
+        );
+
+    const contextTokens = new Set([
+      ...profile.memoryTokens,
+      ...profile.semanticTokens,
+    ]);
+
+    let contextOverlap = 0;
+
+    for (const token of contextTokens) {
+      if (outputTokens.has(token)) {
+        contextOverlap += 1;
+      }
+    }
+
+    const contextRelevance = contextTokens.size === 0
+      ? 0
+      : Math.min(
+          1,
+          contextOverlap / Math.max(1, Math.min(contextTokens.size, 4)),
+        );
+
+    const intentAlignment = this.calculateIntentAlignment(
+      outputTokens,
+      context.intent,
+    );
 
     const novelty = this.calculateNovelty(normalizedText);
-    const memoryBoost = context.relevantMemory ? 0.08 : 0;
-    const semanticBoost = context.semanticContext ? 0.08 : 0;
+    const memoryBoost = context.relevantMemory ? 0.04 : 0;
+    const semanticBoost = context.semanticContext ? 0.04 : 0;
     const emotionBoost = this.calculateEmotionBoost(context.emotion);
+    const intentBoost = this.calculateIntentBoost(context.intent);
 
     const confidence = Math.max(
       0,
       Math.min(
         1,
-        0.42 +
-          relevance * 0.22 +
-          novelty * 0.18 +
+        0.39 +
+          relevance * 0.17 +
+          contextRelevance * 0.14 +
+          intentAlignment * 0.08 +
+          novelty * 0.14 +
           memoryBoost +
           semanticBoost +
-          emotionBoost,
+          emotionBoost +
+          intentBoost,
       ),
     );
 
@@ -341,7 +595,32 @@ export class ResponseGenerationEngine {
       confidence,
       novelty,
       relevance,
+      contextRelevance,
+      intentAlignment,
     };
+  }
+
+  private calculateIntentAlignment(
+    outputTokens: Set<string>,
+    intent: MessageIntent,
+  ): number {
+    const seeds = (INTENT_SEEDS[intent] ?? [])
+      .map(seed => this.normalize(seed))
+      .filter(seed => this.vocabulary.has(seed));
+
+    if (seeds.length === 0) {
+      return 0;
+    }
+
+    let matches = 0;
+
+    for (const seed of seeds) {
+      if (outputTokens.has(seed)) {
+        matches += 1;
+      }
+    }
+
+    return Math.min(1, matches / Math.min(2, seeds.length));
   }
 
   private calculateNovelty(normalizedText: string): number {
@@ -371,8 +650,8 @@ export class ResponseGenerationEngine {
     const hostility = Math.max(0, Math.min(100, emotion.hostility));
 
     return Math.min(
-      0.08,
-      curiosity / 1000 + amusement / 2000 + hostility / 2500,
+      0.06,
+      curiosity / 1300 + amusement / 2500 + hostility / 3200,
     );
   }
 
@@ -386,7 +665,7 @@ export class ResponseGenerationEngine {
       case 'nostalgic':
       case 'philosophical':
       case 'roman':
-        return 0.05;
+        return 0.04;
       default:
         return 0.02;
     }
