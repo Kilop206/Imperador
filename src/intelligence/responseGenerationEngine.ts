@@ -128,6 +128,29 @@ export class ResponseGenerationEngine {
     return this.vocabulary.size;
   }
 
+  /**
+   * Adiciona uma resposta aprovada ao corpus de aprendizado incremental.
+   * A chamada é idempotente por texto normalizado.
+   */
+  public learnApprovedResponse(text: string): boolean {
+    this.initialize();
+
+    const normalized = text.trim();
+
+    if (!normalized || !this.isUsable(normalized)) {
+      return false;
+    }
+
+    if (this.trainingSentences.some(
+      sentence => this.normalize(sentence) === this.normalize(normalized),
+    )) {
+      return false;
+    }
+
+    this.trainSentence(normalized);
+    return true;
+  }
+
   public inspectContext(
     context: ResponseGenerationContext,
   ): ResponseGenerationContextProfile {
