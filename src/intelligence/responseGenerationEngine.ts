@@ -3,6 +3,7 @@ import { PersonalityEngine } from './personalityEngine';
 import type { EmotionState } from '../types/emotion';
 import type { MessageIntent } from '../services/textAnalyzer';
 import { ResponseValidator } from '../services/responseValidator';
+import { GeneratedResponseFeedbackService } from './generatedResponseFeedbackService';
 
 export interface ResponseGenerationContext {
   content: string;
@@ -19,6 +20,7 @@ export interface GeneratedResponse {
   relevance: number;
   contextRelevance: number;
   intentAlignment: number;
+  feedbackId?: string;
 }
 
 export interface ResponseGenerationContextProfile {
@@ -187,7 +189,20 @@ export class ResponseGenerationEngine {
       return null;
     }
 
-    return best;
+    const feedbackId =
+      GeneratedResponseFeedbackService.register({
+        content: context.content,
+        intent: context.intent,
+        emotion: context.emotion,
+        relevantMemory: context.relevantMemory,
+        semanticContext: context.semanticContext,
+        generated: best,
+      });
+
+    return {
+      ...best,
+      feedbackId,
+    };
   }
 
   private buildContextProfile(
