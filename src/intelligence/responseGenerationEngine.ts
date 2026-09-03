@@ -24,7 +24,7 @@ type TransitionMap = Map<Token, Map<Token, number>>;
 
 const START = '<START>';
 const END = '<END>';
-const MAX_GENERATION_ATTEMPTS = 12;
+const MAX_GENERATION_ATTEMPTS = 64;
 const MIN_TOKENS = 5;
 const MAX_TOKENS = 32;
 
@@ -88,6 +88,10 @@ export class ResponseGenerationEngine {
         continue;
       }
 
+      if (this.isExactTrainingSentence(candidate)) {
+        continue;
+      }
+
       if (!ResponseValidator.isResponseAppropriate(
         candidate,
         context.intent === 'aggressive',
@@ -113,7 +117,7 @@ export class ResponseGenerationEngine {
 
     const best = scored[0];
 
-    if (!best || best.confidence < 0.52) {
+    if (!best || best.confidence < 0.45) {
       return null;
     }
 
@@ -369,6 +373,30 @@ export class ResponseGenerationEngine {
     return Math.min(
       0.08,
       curiosity / 1000 + amusement / 2000 + hostility / 2500,
+    );
+  }
+
+  private calculateIntentBoost(intent: MessageIntent): number {
+    switch (intent) {
+      case 'question':
+      case 'greeting':
+      case 'farewell':
+      case 'humor':
+      case 'serious':
+      case 'nostalgic':
+      case 'philosophical':
+      case 'roman':
+        return 0.05;
+      default:
+        return 0.02;
+    }
+  }
+
+  private isExactTrainingSentence(text: string): boolean {
+    const normalized = this.normalize(text);
+
+    return this.trainingSentences.some(
+      sentence => this.normalize(sentence) === normalized,
     );
   }
 

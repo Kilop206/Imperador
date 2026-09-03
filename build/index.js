@@ -70,6 +70,7 @@ client.once('ready', () => {
                 minimumCycleIntervalMs: AUTONOMOUS_AGENT_INTERVAL_MS,
                 maximumCyclesPerWindow: 30,
                 cycleWindowMs: 60 * 60 * 1000,
+                evaluateEnvironmentalGoals: true,
             });
         const auditService = new autonomousRuntimeAuditService_1.AutonomousRuntimeAuditService();
         autonomousRuntimeControl =

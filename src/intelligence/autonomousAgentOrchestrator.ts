@@ -32,7 +32,8 @@ export interface AutonomousAgentOrchestratorOptions {
   enabled?: boolean;
   minimumCycleIntervalMs?: number;
   maximumCyclesPerWindow?: number;
-  cycleWindowMs?: number;
+  cycleWindowMs?: number;  /** Define se gatilhos ambientais devem criar objetivos automaticamente. */
+  evaluateEnvironmentalGoals?: boolean;
 }
 
 export interface AutonomousAgentOrchestratorStatus {
@@ -83,7 +84,9 @@ export class AutonomousAgentOrchestrator {
 
   private readonly cycleWindowMs:
     number;
-
+
+  private readonly evaluateEnvironmentalGoals:
+    boolean;
   private enabled = true;
 
   private running = false;
@@ -190,6 +193,9 @@ export class AutonomousAgentOrchestrator {
       Math.floor(
         cycleWindowMs,
       );
+
+    this.evaluateEnvironmentalGoals =
+      options.evaluateEnvironmentalGoals ?? false;
 
     this.enabled =
       options.enabled ?? true;
@@ -347,7 +353,9 @@ export class AutonomousAgentOrchestrator {
     GoalEngine.tick();
 
     const createdGoals =
-      GoalEngine.evaluateEnvironmentalTriggers();
+      this.evaluateEnvironmentalGoals
+        ? GoalEngine.evaluateEnvironmentalTriggers()
+        : [];
 
     if (
       createdGoals.length > 0

@@ -26,7 +26,7 @@ import {
 } from './memoryService';
 import {
   ResponseGenerationEngine,
-} from '../intelligence/responseGenerationEngige';
+} from '../intelligence/responseGenerationEngine';
 
 let semanticContextService =
   new SemanticContextService();

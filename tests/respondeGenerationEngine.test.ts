@@ -23,7 +23,7 @@ test('gera uma resposta nova a partir do corpus do Tibério', () => {
 
   assert.ok(result);
   assert.ok(result.text.length >= 12);
-  assert.ok(result.confidence >= 0.52);
+  assert.ok(result.confidence >= 0.45);
   assert.ok(result.novelty >= 0);
   assert.ok(result.relevance >= 0);
 });

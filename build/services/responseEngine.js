@@ -12,9 +12,9 @@ const emotionState_1 = require("../state/emotionState");
 const conversationMemory_1 = require("../intelligence/conversationMemory");
 const semanticContextService_1 = require("../intelligence/semanticContextService");
 const memoryService_1 = require("./memoryService");
-const responseGenerationEngige_1 = require("../intelligence/responseGenerationEngige");
+const responseGenerationEngine_1 = require("../intelligence/responseGenerationEngine");
 let semanticContextService = new semanticContextService_1.SemanticContextService();
-const responseGenerationEngine = new responseGenerationEngige_1.ResponseGenerationEngine();
+const responseGenerationEngine = new responseGenerationEngine_1.ResponseGenerationEngine();
 class ResponseEngine {
     static setSemanticService(service) {
         semanticContextService = service;

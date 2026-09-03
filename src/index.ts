@@ -210,6 +210,8 @@ client.once('ready', () => {
             30,
           cycleWindowMs:
             60 * 60 * 1000,
+          evaluateEnvironmentalGoals:
+            true,
         },
       );
 
