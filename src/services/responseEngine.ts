@@ -10,9 +10,6 @@ import {
   ResponseValidator,
 } from './responseValidator';
 import {
-  MemoryContextService,
-} from './memoryContext';
-import {
   PersonalityEngine,
 } from '../intelligence/personalityEngine';
 import {
@@ -27,16 +24,15 @@ import {
 import {
   MemoryService,
 } from './memoryService';
+import {
+  ResponseGenerationEngine,
+} from '../intelligence/responseGenerationEngige';
 
-/**
- * Instância atual do SemanticContextService.
- *
- * O serviço começa sem configuração — os sinais determinísticos existentes
- * não dependem dele. Pode ser substituído integralmente por
- * ResponseEngine.setSemanticService().
- */
 let semanticContextService =
   new SemanticContextService();
+
+const responseGenerationEngine =
+  new ResponseGenerationEngine();
 
 export type ResponseSource =
   | 'memory'
@@ -47,7 +43,8 @@ export type ResponseSource =
   | 'keyword'
   | 'intent'
   | 'rare'
-  | 'semantic';
+  | 'semantic'
+  | 'generated';
 
 export interface ResponseCandidate {
   text: string;
@@ -56,17 +53,10 @@ export interface ResponseCandidate {
 }
 
 export class ResponseEngine {
-  /**
-   * Configura o SemanticContextService para enriquecimento de contexto.
-   *
-   * A instância recebida passa a ser usada diretamente pelo ResponseEngine.
-   * Isso evita copiar estado interno com Object.assign().
-   */
   static setSemanticService(
     service: SemanticContextService
   ): void {
-    semanticContextService =
-      service;
+    semanticContextService = service;
   }
 
   static generateCandidates(
@@ -144,7 +134,6 @@ export class ResponseEngine {
       candidates
     );
 
-    // Semantic context enrichment (optional — only when service is configured)
     if (userId) {
       this.addSemanticCandidates(
         userId,
@@ -152,6 +141,13 @@ export class ResponseEngine {
         candidates
       );
     }
+
+    this.addGeneratedCandidate(
+      content,
+      analysis,
+      userId,
+      candidates
+    );
 
     const rareResponse =
       RarityManager.getRareResponse();
@@ -177,7 +173,27 @@ export class ResponseEngine {
         userId
       );
 
-    // Record into short-term memory regardless of whether we reply
+    if (candidates.length === 0) {
+      if (userId) {
+        const analysis =
+          TextAnalyzer.analyze(content);
+
+        ConversationMemoryEngine.recordInteraction(
+          userId,
+          content,
+          analysis.intent
+        );
+      }
+
+      return null;
+    }
+
+    const filtered =
+      this.filterCandidates(
+        candidates,
+        content
+      );
+
     if (userId) {
       const analysis =
         TextAnalyzer.analyze(content);
@@ -188,16 +204,6 @@ export class ResponseEngine {
         analysis.intent
       );
     }
-
-    if (candidates.length === 0) {
-      return null;
-    }
-
-    const filtered =
-      this.filterCandidates(
-        candidates,
-        content
-      );
 
     if (filtered.length === 0) {
       return null;
@@ -222,6 +228,84 @@ export class ResponseEngine {
     return this.randomItem(
       bestCandidates
     ).text;
+  }
+
+  private static addGeneratedCandidate(
+    content: string,
+    analysis: {
+      isAggressive: boolean;
+      isCompliment: boolean;
+      intent: MessageIntent;
+    },
+    userId: string | undefined,
+    candidates: ResponseCandidate[]
+  ): void {
+    try {
+      const relevantMemory = userId
+        ? ConversationMemoryEngine.buildMemoryResponse(
+            userId,
+            content
+          )
+        : null;
+
+      let semanticContext:
+        string | null = null;
+
+      if (
+        userId &&
+        semanticContextService.isConfigured()
+      ) {
+        const memories =
+          MemoryService.getUserConversations(
+            userId,
+            20
+          );
+
+        if (memories.length > 0) {
+          const context =
+            semanticContextService.buildContext(
+              content,
+              memories,
+              emotionState
+            );
+
+          if (
+            context.isActive &&
+            context.best
+          ) {
+            semanticContext =
+              context.contextSummary;
+          }
+        }
+      }
+
+      const generated =
+        responseGenerationEngine.generate({
+          content,
+          intent: analysis.intent,
+          emotion: emotionState,
+          relevantMemory,
+          semanticContext,
+        });
+
+      if (!generated) {
+        return;
+      }
+
+      const score =
+        86 +
+        Math.round(
+          generated.confidence * 8
+        );
+
+      candidates.push({
+        text: generated.text,
+        source: 'generated',
+        score: Math.min(94, score),
+      });
+    } catch {
+      // O gerador é opcional. O pipeline determinístico continua funcionando.
+    }
   }
 
   private static addSemanticCandidates(
@@ -258,8 +342,6 @@ export class ResponseEngine {
         return;
       }
 
-      // Score semântico: entre memória TF-IDF (85) e keyword (65)
-      // Proporcional ao score final do HybridRetrieval
       const semanticScore =
         65 +
         Math.round(
@@ -281,7 +363,6 @@ export class ResponseEngine {
     content: string,
     candidates: ResponseCandidate[]
   ): void {
-    // Use the new engine which supports relevance scoring + short-term
     const memoryResponse =
       ConversationMemoryEngine.buildMemoryResponse(
         userId,
@@ -541,7 +622,6 @@ export class ResponseEngine {
     const analysis =
       TextAnalyzer.analyze(content);
 
-    // Get emotion-driven score modifiers
     const modifiers =
       PersonalityEngine.getScoreModifiers(
         emotionState
@@ -550,19 +630,16 @@ export class ResponseEngine {
     return candidates
       .filter(
         candidate =>
-          // 1. Context/safety filter
           ResponseValidator.isResponseAppropriate(
             candidate.text,
             analysis.isAggressive,
             analysis.isCompliment
           ) &&
-          // 2. Personality consistency filter
           PersonalityEngine.isConsistent(
             candidate.text
           )
       )
       .map(candidate => {
-        // 3. Apply emotion-based score modifiers per source
         let bonus = 0;
 
         if (
@@ -581,7 +658,7 @@ export class ResponseEngine {
           candidate.source ===
             'mode' ||
           candidate.source ===
-            'intent'
+          'intent'
         ) {
           bonus =
             modifiers.reflectiveBoost;

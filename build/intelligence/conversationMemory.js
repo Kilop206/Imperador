@@ -10,6 +10,41 @@ const memory_1 = require("../types/memory");
  * Cleared when the process restarts (intentional — long-term lives in SQLite).
  */
 const shortTermBuffer = [];
+const MIN_SUMMARY_OVERLAP_FOR_NON_TOPIC_MATCH = 2;
+const QUERY_STOP_WORDS = new Set([
+    'a',
+    'as',
+    'ao',
+    'aos',
+    'com',
+    'da',
+    'das',
+    'de',
+    'do',
+    'dos',
+    'e',
+    'em',
+    'na',
+    'nas',
+    'no',
+    'nos',
+    'o',
+    'os',
+    'ou',
+    'para',
+    'por',
+    'que',
+    'se',
+    'sem',
+    'sobre',
+    'um',
+    'uma',
+    'uns',
+    'umas',
+    'vc',
+    'voce',
+    'você',
+]);
 class ConversationMemoryEngine {
     // ─── Short-term ────────────────────────────────────────────────────────────
     /**
@@ -23,7 +58,8 @@ class ConversationMemoryEngine {
             intent,
             timestamp: Date.now(),
         });
-        if (shortTermBuffer.length > memory_1.MEMORY_LIMITS.SHORT_TERM_MAX) {
+        if (shortTermBuffer.length >
+            memory_1.MEMORY_LIMITS.SHORT_TERM_MAX) {
             shortTermBuffer.shift();
         }
     }
@@ -32,8 +68,8 @@ class ConversationMemoryEngine {
      */
     static getShortTerm(userId, limit = 5) {
         return shortTermBuffer
-            .filter(e => e.userId === userId)
-            .slice(-limit)
+            .filter(entry => entry.userId === userId)
+            .slice(-Math.max(1, Math.floor(limit)))
             .reverse();
     }
     /**
@@ -41,7 +77,7 @@ class ConversationMemoryEngine {
      */
     static getAllShortTerm(limit = memory_1.MEMORY_LIMITS.SHORT_TERM_MAX) {
         return [...shortTermBuffer]
-            .slice(-limit)
+            .slice(-Math.max(1, Math.floor(limit)))
             .reverse();
     }
     /** Clear the short-term buffer entirely (useful for tests). */
@@ -52,49 +88,85 @@ class ConversationMemoryEngine {
     /**
      * Score a single long-term memory against a query message.
      *
-     * Score components:
-     * - Topic word in query (+10 exact token match, +5 substring)
-     * - Summary words overlapping with query (+1 each, words >= 4 chars)
-     * - Importance weight (+importance * 0.8)
-     * - Recency bonus: more recent = higher score (+0 to +5)
-     * - Penalty for age (expired memories score 0)
+     * The relevance policy is intentionally conservative:
+     *
+     * 1. A direct topic match is strong evidence.
+     * 2. Otherwise, the query must share at least two meaningful words
+     *    with the memory summary.
+     * 3. Importance and recency only modify an already relevant memory.
+     *
+     * This prevents a recent/high-importance memory from becoming relevant
+     * to completely unrelated messages.
      */
     static scoreMemory(memory, normalizedQuery, now = Date.now()) {
-        const age = now - memory.lastSeen;
-        // Hard expiry: old low-importance memories are invisible
+        const age = Math.max(0, now - memory.lastSeen);
         if (memory.importance <= 2 &&
-            age > memory_1.MEMORY_LIMITS.LOW_IMPORTANCE_EXPIRY_MS) {
+            age >
+                memory_1.MEMORY_LIMITS.LOW_IMPORTANCE_EXPIRY_MS) {
             return 0;
         }
-        if (age > memory_1.MEMORY_LIMITS.MAX_MEMORY_AGE_MS) {
+        if (age >
+            memory_1.MEMORY_LIMITS.MAX_MEMORY_AGE_MS) {
+            return 0;
+        }
+        const normalizedTopic = textAnalyzer_1.TextAnalyzer.normalize(memory.topic);
+        const queryTokens = this.tokenizeMeaningful(normalizedQuery);
+        const topicTokens = this.tokenizeMeaningful(normalizedTopic);
+        const normalizedSummary = textAnalyzer_1.TextAnalyzer.normalize(memory.summary);
+        const summaryTokens = this.tokenizeMeaningful(normalizedSummary);
+        const querySet = new Set(queryTokens);
+        const topicSet = new Set(topicTokens);
+        const summarySet = new Set(summaryTokens);
+        let topicMatch = false;
+        if (normalizedTopic.length > 0 &&
+            querySet.has(normalizedTopic)) {
+            topicMatch = true;
+        }
+        if (!topicMatch &&
+            normalizedTopic.length > 0 &&
+            normalizedQuery.includes(normalizedTopic)) {
+            topicMatch = true;
+        }
+        const summaryOverlap = this.countIntersection(querySet, summarySet);
+        const topicOverlap = this.countIntersection(querySet, topicSet);
+        /*
+         * No direct topic evidence and less than two meaningful
+         * overlapping summary terms means the memory is irrelevant.
+         */
+        if (!topicMatch &&
+            topicOverlap === 0 &&
+            summaryOverlap <
+                MIN_SUMMARY_OVERLAP_FOR_NON_TOPIC_MATCH) {
             return 0;
         }
         let score = 0;
-        const normalizedTopic = textAnalyzer_1.TextAnalyzer.normalize(memory.topic);
-        // Token match (exact word in query)
-        const tokens = normalizedQuery.split(' ');
-        if (tokens.includes(normalizedTopic)) {
-            score += 10;
+        if (topicMatch) {
+            score += 12;
         }
-        else if (normalizedQuery.includes(normalizedTopic)) {
-            score += 5;
+        if (topicOverlap > 0) {
+            score += Math.min(6, topicOverlap * 3);
         }
-        // Summary word overlap
-        const normalizedSummary = textAnalyzer_1.TextAnalyzer.normalize(memory.summary);
-        const summaryTokens = normalizedSummary
-            .split(' ')
-            .filter(w => w.length >= 4);
-        for (const word of summaryTokens) {
-            if (normalizedQuery.includes(word)) {
-                score += 1;
-            }
+        if (summaryOverlap > 0) {
+            score += Math.min(6, summaryOverlap * 2);
         }
-        // Importance weight
-        score += memory.importance * 0.8;
-        // Recency bonus (max +5, decays linearly over 30 days)
-        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-        const recencyBonus = Math.max(0, 5 * (1 - Math.min(age, thirtyDays) / thirtyDays));
-        score += recencyBonus;
+        /*
+         * Importance is now a modifier, not evidence of relevance.
+         */
+        score +=
+            Math.min(4, Math.max(0, memory.importance) * 0.4);
+        /*
+         * Recency is also only a modifier after relevance was established.
+         */
+        const thirtyDays = 30 *
+            24 *
+            60 *
+            60 *
+            1000;
+        const recencyBonus = 3 *
+            (1 -
+                Math.min(age, thirtyDays) /
+                    thirtyDays);
+        score += Math.max(0, recencyBonus);
         return score;
     }
     /**
@@ -112,8 +184,10 @@ class ConversationMemoryEngine {
             memory,
             score: this.scoreMemory(memory, normalizedQuery, now),
         }))
-            .filter(s => s.score >= memory_1.MEMORY_LIMITS.RELEVANCE_THRESHOLD)
-            .sort((a, b) => b.score - a.score);
+            .filter(scored => scored.score >=
+            memory_1.MEMORY_LIMITS.RELEVANCE_THRESHOLD)
+            .sort((a, b) => b.score -
+            a.score);
     }
     /**
      * Full memory context for a response decision.
@@ -123,7 +197,8 @@ class ConversationMemoryEngine {
         const candidates = this.findRelevant(userId, content, now);
         return {
             shortTerm,
-            longTerm: candidates[0] ?? null,
+            longTerm: candidates[0] ??
+                null,
             candidates,
         };
     }
@@ -133,25 +208,23 @@ class ConversationMemoryEngine {
      * Returns null when no relevant memory exists.
      */
     static buildMemoryResponse(userId, content) {
-        const ctx = this.resolve(userId, content);
-        if (!ctx.longTerm) {
+        const context = this.resolve(userId, content);
+        if (!context.longTerm) {
             return null;
         }
-        const { memory } = ctx.longTerm;
+        const { memory, } = context.longTerm;
         return (`O Imperador se recorda de ${memory.topic}. ` +
             `${memory.summary}`);
     }
     /**
      * Check if the current message references a topic from a past conversation.
-     * Used by the ResponseEngine to award the 'memory' source bonus.
      */
     static hasRelevantMemory(userId, content) {
-        return this.findRelevant(userId, content).length > 0;
+        return (this.findRelevant(userId, content).length > 0);
     }
     // ─── Short-term topic tracking ─────────────────────────────────────────────
     /**
      * Return the most frequently mentioned intent/topic in recent short-term entries.
-     * Useful for deciding whether to maintain or change topic.
      */
     static getDominantRecentIntent(userId, windowSize = 5) {
         const recent = this.getShortTerm(userId, windowSize);
@@ -164,30 +237,49 @@ class ConversationMemoryEngine {
         }
         let dominant = '';
         let max = 0;
-        for (const [intent, count] of counts) {
+        for (const [intent, count,] of counts) {
             if (count > max) {
                 max = count;
                 dominant = intent;
             }
         }
-        return dominant || null;
+        return (dominant ||
+            null);
     }
     /**
      * Return how many consecutive interactions from a user have been
-     * of the same intent (streak length).
+     * of the same intent.
      */
     static getIntentStreak(userId, intent) {
         const entries = this.getShortTerm(userId, memory_1.MEMORY_LIMITS.SHORT_TERM_MAX);
         let streak = 0;
         for (const entry of entries) {
             if (entry.intent === intent) {
-                streak++;
+                streak += 1;
             }
             else {
                 break;
             }
         }
         return streak;
+    }
+    // ─── Private helpers ───────────────────────────────────────────────────────
+    static tokenizeMeaningful(text) {
+        return textAnalyzer_1.TextAnalyzer
+            .normalize(text)
+            .split(/\s+/)
+            .map(token => token.trim())
+            .filter(token => token.length >= 3 &&
+            !QUERY_STOP_WORDS.has(token));
+    }
+    static countIntersection(left, right) {
+        let count = 0;
+        for (const token of left) {
+            if (right.has(token)) {
+                count += 1;
+            }
+        }
+        return count;
     }
 }
 exports.ConversationMemoryEngine = ConversationMemoryEngine;

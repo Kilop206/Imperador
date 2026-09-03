@@ -175,12 +175,6 @@ client.once('ready', () => {
     );
   }
 
-  /*
-   * Inicialização do runtime autônomo.
-   *
-   * O agente permanece desligado por padrão,
-   * a menos que AUTONOMOUS_AGENT_ENABLED=true.
-   */
   try {
     const toolRegistry =
       new ToolRegistry();
@@ -239,16 +233,6 @@ client.once('ready', () => {
       }.`,
     );
 
-    /*
-     * O loop sempre existe.
-     *
-     * Isso é necessário para que:
-     *
-     * !autonomia on
-     *
-     * consiga ativar o agente dinamicamente,
-     * sem reiniciar o processo.
-     */
     autonomousAgentInterval =
       setInterval(
         () => {
@@ -376,9 +360,6 @@ client.on(
       return;
     }
 
-    /*
-     * Controle administrativo do agente autônomo.
-     */
     if (
       message.content
         .trim()
@@ -541,21 +522,10 @@ client.on(
       message.content,
     );
 
-    /*
-     * Todas as mensagens humanas passam
-     * pelos sistemas de memória e emoção,
-     * independentemente de Tibério responder.
-     */
     const analysis =
       TextAnalyzer.analyze(
         message.content,
       );
-
-    AutoMemoryService.processMessage(
-      message.author.id,
-      message.author.username,
-      message.content,
-    );
 
     EmotionEngine.processMessage(
       analysis,
@@ -572,13 +542,6 @@ client.on(
         message,
       );
     } else {
-      /*
-       * Para mensagens que não geram resposta direta,
-       * verifica se há memória contextual relevante para
-       * alimentar o Semantic Active Learning com pares contextuais.
-       *
-       * Não adiciona automaticamente ao treinamento.
-       */
       const trimmed =
         message.content.trim();
 
@@ -603,6 +566,12 @@ client.on(
         }
       }
     }
+
+    AutoMemoryService.processMessage(
+      message.author.id,
+      message.author.username,
+      message.content,
+    );
   },
 );
 

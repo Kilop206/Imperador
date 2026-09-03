@@ -2,66 +2,76 @@
 /**
  * 13.19 -- Integração semântica com o ResponseEngine
  *
- * SemanticContextService é uma façade que integra o HybridRetrievalService
+ * SemanticContextService integra o HybridRetrievalService
  * com as memórias de conversa do Tibério.
  *
- * Princípio de integração gradual:
- * - O serviço é OPCIONAL. Quando não configurado, não quebra nada.
- * - O ResponseEngine consulta este serviço de forma não-bloqueante.
- * - As respostas determinísticas existentes são preservadas integralmente.
- * - Apenas adiciona candidatos extras com contexto semântico.
+ * O serviço continua opcional, mas agora possui um gate conservador:
+ * uma memória semântica precisa apresentar evidência lexical ou TF-IDF
+ * antes de poder virar contexto de resposta.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SemanticContextService = void 0;
 const hybridRetrievalService_1 = require("./hybridRetrievalService");
-// ─────────────────────────────────────────────────────────────────────────────
-// Serviço
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Gate mínimo para permitir uma memória semântica em uma resposta.
+ *
+ * A similaridade neural isolada é considerada insuficiente porque
+ * embeddings podem aproximar frases semanticamente vagas.
+ */
+const MIN_KEYWORD_SIGNAL = 0.08;
+const MIN_TFIDF_SIGNAL = 0.15;
 class SemanticContextService {
     constructor() {
         this.configured = false;
-        this.retrieval = new hybridRetrievalService_1.HybridRetrievalService();
+        this.retrieval =
+            new hybridRetrievalService_1.HybridRetrievalService();
     }
-    // ─── Configuração opcional ─────────────────────────────────────────────────
+    // ─── Configuração opcional ──────────────────────────────────────────────────
     /**
-     * Configura o serviço TF-IDF para o componente léxico-estatístico.
-     * Opcional — sem ele o componente tfidf permanece em 0.
+     * Configura o serviço de similaridade TF-IDF.
      */
     setTfidfService(service) {
         this.retrieval.setTfidfService(service);
-        this.configured = true;
+        this.configured =
+            true;
     }
     /**
-     * Configura o serviço neural para o componente de embedding.
-     * Opcional — sem ele o componente neural permanece em 0.
+     * Configura o serviço neural.
      */
     setNeuralService(service) {
         this.retrieval.setNeuralService(service);
-        this.configured = true;
+        this.configured =
+            true;
     }
     /**
-     * Marca o serviço como configurado mesmo sem TF-IDF nem neural,
-     * para usar apenas keyword + recência + importância + emoção.
+     * Marca o serviço como configurado sem depender
+     * obrigatoriamente de TF-IDF ou neural.
      */
     enable() {
-        this.configured = true;
+        this.configured =
+            true;
     }
     isConfigured() {
         return this.configured;
     }
-    // ─── Recuperação de contexto ───────────────────────────────────────────────
+    // ─── Recuperação de contexto ────────────────────────────────────────────────
     /**
-     * Dado uma mensagem do usuário e um conjunto de memórias de conversa,
-     * recupera as mais relevantes usando o ranking híbrido.
+     * Recupera contexto semântico para uma mensagem.
      *
-     * Retorna um SemanticContext com `isActive = false` se o serviço
-     * não estiver configurado ou se não houver memórias.
+     * Uma memória só pode ser utilizada quando:
+     *
+     * - existe um score híbrido mínimo; e
+     * - existe evidência lexical ou TF-IDF suficiente.
+     *
+     * O componente neural continua participando do ranking,
+     * mas não pode sozinho transformar qualquer mensagem vaga
+     * em uma lembrança.
      */
     buildContext(query, memories, emotionState, options = {}) {
         const empty = {
             memories: [],
             best: null,
-            contextSummary: "",
+            contextSummary: '',
             isActive: false,
         };
         if (!this.configured ||
@@ -71,40 +81,46 @@ class SemanticContextService {
         }
         const candidates = this.convertMemories(memories);
         const results = this.retrieval.retrieve(query, candidates, emotionState, {
-            topK: options.topK ?? 3,
-            minimumScore: options.minimumScore ?? 0.05,
+            topK: options.topK ??
+                3,
+            minimumScore: options.minimumScore ??
+                0.10,
             weights: options.weights,
             recencyHalfLifeMs: options.recencyHalfLifeMs,
         });
         if (results.length === 0) {
             return empty;
         }
-        const best = results[0];
-        const contextSummary = this.buildContextSummary(results);
+        const gatedResults = results.filter(result => this.hasSemanticEvidence(result));
+        if (gatedResults.length === 0) {
+            return empty;
+        }
+        const best = gatedResults[0];
+        const contextSummary = this.buildContextSummary(gatedResults);
         return {
-            memories: results,
+            memories: gatedResults,
             best,
             contextSummary,
             isActive: true,
         };
     }
     /**
-     * Formata um SemanticContext como texto para uso em prompts ou logs.
+     * Formata um SemanticContext como texto.
      */
     formatContext(context, maxItems = 3) {
         if (!context.isActive) {
-            return "";
+            return '';
         }
         const lines = [];
         const items = context.memories.slice(0, maxItems);
         for (const result of items) {
             lines.push(`[score=${result.score.final.toFixed(3)}] ${result.text}`);
         }
-        return lines.join("\n");
+        return lines.join('\n');
     }
-    // ─── Privado ───────────────────────────────────────────────────────────────
+    // ─── Privado ────────────────────────────────────────────────────────────────
     convertMemories(memories) {
-        return memories.map((memory) => ({
+        return memories.map(memory => ({
             id: String(memory.id),
             text: `${memory.topic}: ${memory.summary}`,
             createdAt: memory.createdAt,
@@ -115,29 +131,37 @@ class SemanticContextService {
             },
         }));
     }
+    /**
+     * Garante que a memória tenha algum sinal textual real.
+     *
+     * Neural similarity continua válida para ranking,
+     * mas não é suficiente para ativar contexto.
+     */
+    hasSemanticEvidence(result) {
+        const { keyword, tfidf, } = result.score.components;
+        return (keyword >=
+            MIN_KEYWORD_SIGNAL ||
+            tfidf >=
+                MIN_TFIDF_SIGNAL);
+    }
     buildContextSummary(results) {
         if (results.length === 0) {
-            return "";
+            return '';
         }
         const best = results[0];
-        const topic = best.memory.metadata?.topic ?? "";
+        const topic = best.memory.metadata
+            ?.topic ?? '';
         if (topic) {
-            return `Tópico lembrado: ${topic}. ${best.text}`;
+            return (`Tópico lembrado: ${topic}. ${best.text}`);
         }
         return best.text;
     }
 }
 exports.SemanticContextService = SemanticContextService;
 // ─────────────────────────────────────────────────────────────────────────────
-// Utilitários internos
+// Utilitários
 // ─────────────────────────────────────────────────────────────────────────────
-/**
- * Normaliza importance de ConversationMemory (geralmente 1–5) para 0–1.
- * O HybridRetrievalService aceita 0–1 ou 0–10 automaticamente,
- * mas aqui fazemos a conversão explícita para o domínio 1–5.
- */
 function normalizeImportance(importance) {
-    // ConversationMemory.importance é 1–5 (confirmado no memoryService)
     if (importance <= 0) {
         return 0;
     }

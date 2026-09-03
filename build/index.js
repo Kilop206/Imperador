@@ -56,12 +56,6 @@ client.once('ready', () => {
     catch (error) {
         console.error('Erro ao inicializar o módulo de IA:', error);
     }
-    /*
-     * Inicialização do runtime autônomo.
-     *
-     * O agente permanece desligado por padrão,
-     * a menos que AUTONOMOUS_AGENT_ENABLED=true.
-     */
     try {
         const toolRegistry = new toolRegistry_1.ToolRegistry();
         const safetyPermissionEngine = new safetyPermissionEngine_1.SafetyPermissionEngine(toolRegistry);
@@ -84,16 +78,6 @@ client.once('ready', () => {
         console.log(`Agente autônomo ${autonomousAgentEnabled
             ? 'habilitado'
             : 'desabilitado'}.`);
-        /*
-         * O loop sempre existe.
-         *
-         * Isso é necessário para que:
-         *
-         * !autonomia on
-         *
-         * consiga ativar o agente dinamicamente,
-         * sem reiniciar o processo.
-         */
         autonomousAgentInterval =
             setInterval(() => {
                 if (!autonomousAgent ||
@@ -163,9 +147,6 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot) {
         return;
     }
-    /*
-     * Controle administrativo do agente autônomo.
-     */
     if (message.content
         .trim()
         .toLowerCase()
@@ -253,26 +234,13 @@ client.on('messageCreate', async (message) => {
         }
     }
     triggerManager_1.TriggerManager.checkTriggers(message.content);
-    /*
-     * Todas as mensagens humanas passam
-     * pelos sistemas de memória e emoção,
-     * independentemente de Tibério responder.
-     */
     const analysis = textAnalyzer_1.TextAnalyzer.analyze(message.content);
-    autoMemoryService_1.AutoMemoryService.processMessage(message.author.id, message.author.username, message.content);
     emotionEngine_1.EmotionEngine.processMessage(analysis);
     memoryService_1.MemoryService.saveEmotions(emotionEngine_1.EmotionEngine.getState());
     if (reply_1.ReplyService.shouldReply(message)) {
         await reply_1.ReplyService.reply(message);
     }
     else {
-        /*
-         * Para mensagens que não geram resposta direta,
-         * verifica se há memória contextual relevante para
-         * alimentar o Semantic Active Learning com pares contextuais.
-         *
-         * Não adiciona automaticamente ao treinamento.
-         */
         const trimmed = message.content.trim();
         if (!trimmed.startsWith('!')) {
             const relevantMemory = memoryContext_1.MemoryContextService.findRelevantMemory(message.author.id, trimmed);
@@ -283,6 +251,7 @@ client.on('messageCreate', async (message) => {
             }
         }
     }
+    autoMemoryService_1.AutoMemoryService.processMessage(message.author.id, message.author.username, message.content);
 });
 client.on('error', error => {
     console.error('Erro no cliente Discord:', error);
