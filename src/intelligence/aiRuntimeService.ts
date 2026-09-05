@@ -74,6 +74,11 @@ import {
   ResponseEngine,
 } from '../services/responseEngine';
 
+import {
+  GeneratedResponseTrainingRuntimeService,
+  type GeneratedResponseTrainingRuntimeStatus,
+} from './generatedResponseTrainingRuntimeService';
+
 export interface AIRuntimePrediction {
   prediction: IntentPrediction;
   activeLearning: ActiveLearningScore;
@@ -129,10 +134,15 @@ export interface AIRuntimeStatus {
       eligible: number;
     };
   };
+
+  generatedResponseTrainingRuntime: GeneratedResponseTrainingRuntimeStatus;
 }
 
 export class AIRuntimeService {
   private static initialized = false;
+
+  private static generatedResponseTrainingRuntime:
+    GeneratedResponseTrainingRuntimeService | null = null;
 
   public static initialize(): void {
     if (this.initialized) {
@@ -161,6 +171,32 @@ export class AIRuntimeService {
     ResponseEngine
       .getResponseGenerationEngine()
       .initialize();
+
+    this.generatedResponseTrainingRuntime =
+      new GeneratedResponseTrainingRuntimeService({
+        enabled:
+          process.env.GENERATED_RESPONSE_TRAINING_ENABLED ===
+          'true',
+        intervalMs:
+          this.readPositiveIntegerEnv(
+            'GENERATED_RESPONSE_TRAINING_INTERVAL_MS',
+            30 * 60 * 1000,
+          ),
+        batchSize:
+          this.readPositiveIntegerEnv(
+            'GENERATED_RESPONSE_TRAINING_BATCH_SIZE',
+            50,
+          ),
+        minimumIntervalMs:
+          this.readPositiveIntegerEnv(
+            'GENERATED_RESPONSE_TRAINING_MINIMUM_INTERVAL_MS',
+            5 * 60 * 1000,
+          ),
+        train: limit =>
+          this.trainGeneratedResponses(limit),
+      });
+
+    this.generatedResponseTrainingRuntime.start();
 
     this.initialized = true;
   }
@@ -600,6 +636,19 @@ export class AIRuntimeService {
    * Persiste explicitamente os modelos semânticos
    * atualmente ativos.
    */
+  public static getGeneratedResponseTrainingRuntimeStatus():
+    GeneratedResponseTrainingRuntimeStatus {
+    this.ensureInitialized();
+
+    if (!this.generatedResponseTrainingRuntime) {
+      throw new Error(
+        'Runtime de treinamento de respostas geradas não inicializado.',
+      );
+    }
+
+    return this.generatedResponseTrainingRuntime.getStatus();
+  }
+
   public static saveModels(): void {
     this.ensureInitialized();
 
@@ -676,11 +725,33 @@ export class AIRuntimeService {
             feedbackStats.trainingEligible,
         },
       },
+
+      generatedResponseTrainingRuntime:
+        this.getGeneratedResponseTrainingRuntimeStatus(),
     };
   }
 
   public static reset(): void {
+    if (this.generatedResponseTrainingRuntime) {
+      this.generatedResponseTrainingRuntime.stop();
+    }
+
+    this.generatedResponseTrainingRuntime = null;
     this.initialized = false;
+  }
+
+  private static readPositiveIntegerEnv(
+    name: string,
+    fallback: number,
+  ): number {
+    const raw = process.env[name];
+    const parsed = raw === undefined ? NaN : Number(raw);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return fallback;
+    }
+
+    return Math.floor(parsed);
   }
 
   private static normalize(
