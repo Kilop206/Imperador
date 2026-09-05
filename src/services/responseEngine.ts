@@ -59,6 +59,10 @@ export class ResponseEngine {
     semanticContextService = service;
   }
 
+  static getResponseGenerationEngine(): ResponseGenerationEngine {
+    return responseGenerationEngine;
+  }
+
   static generateCandidates(
     content: string,
     userId?: string
@@ -103,9 +107,7 @@ export class ResponseEngine {
       );
     }
 
-    if (
-      !ModeManager.isNormalMode()
-    ) {
+    if (!ModeManager.isNormalMode()) {
       const modeResponse =
         ModeManager.getModeResponse();
 

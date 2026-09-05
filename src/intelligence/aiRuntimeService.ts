@@ -61,6 +61,19 @@ import type {
   SemanticPromotionThresholds,
 } from './semanticModelPromotionService';
 
+import {
+  GeneratedResponseFeedbackService,
+} from './generatedResponseFeedbackService';
+
+import {
+  GeneratedResponseLearningService,
+  type GeneratedResponseLearningResult,
+} from './generatedResponseLearningService';
+
+import {
+  ResponseEngine,
+} from '../services/responseEngine';
+
 export interface AIRuntimePrediction {
   prediction: IntentPrediction;
   activeLearning: ActiveLearningScore;
@@ -80,6 +93,17 @@ export interface AIRuntimeSemanticTrainingResult {
     SemanticFeedbackTrainingContext;
 }
 
+export interface AIRuntimeGeneratedResponseTrainingResult {
+  learning:
+    GeneratedResponseLearningResult;
+
+  trainingSentenceCount:
+    number;
+
+  vocabularySize:
+    number;
+}
+
 export interface AIRuntimeStatus {
   initialized: boolean;
 
@@ -93,6 +117,18 @@ export interface AIRuntimeStatus {
   };
 
   semantic: ModelManagerStatus;
+
+  generatedResponse: {
+    trainingSentenceCount: number;
+    vocabularySize: number;
+    feedback: {
+      total: number;
+      positive: number;
+      negative: number;
+      neutral: number;
+      eligible: number;
+    };
+  };
 }
 
 export class AIRuntimeService {
@@ -116,6 +152,15 @@ export class AIRuntimeService {
      * disponíveis ou treinando-os quando necessário.
      */
     ModelManager.initialize();
+
+    /*
+     * O gerador de respostas pertence ao ResponseEngine.
+     * Inicializamos a mesma instância que será utilizada
+     * pelo pipeline de respostas em produção.
+     */
+    ResponseEngine
+      .getResponseGenerationEngine()
+      .initialize();
 
     this.initialized = true;
   }
@@ -517,6 +562,41 @@ export class AIRuntimeService {
   }
 
   /**
+   * Aplica ao gerador de respostas o feedback
+   * positivo que já foi validado pelo pipeline.
+   *
+   * Usa a mesma instância do ResponseEngine,
+   * portanto o aprendizado passa a afetar
+   * as respostas geradas em produção.
+   */
+  public static trainGeneratedResponses(
+    limit = 50,
+  ): AIRuntimeGeneratedResponseTrainingResult {
+    this.ensureInitialized();
+
+    const engine =
+      ResponseEngine
+        .getResponseGenerationEngine();
+
+    const learning =
+      GeneratedResponseLearningService
+        .applyEligible(
+          engine,
+          limit,
+        );
+
+    return {
+      learning,
+
+      trainingSentenceCount:
+        engine.getTrainingSentenceCount(),
+
+      vocabularySize:
+        engine.getVocabularySize(),
+    };
+  }
+
+  /**
    * Persiste explicitamente os modelos semânticos
    * atualmente ativos.
    */
@@ -529,6 +609,14 @@ export class AIRuntimeService {
   public static getStatus():
     AIRuntimeStatus {
     this.ensureInitialized();
+
+    const responseGenerationEngine =
+      ResponseEngine
+        .getResponseGenerationEngine();
+
+    const feedbackStats =
+      GeneratedResponseFeedbackService
+        .getStats();
 
     return {
       initialized:
@@ -561,6 +649,33 @@ export class AIRuntimeService {
 
       semantic:
         ModelManager.getStatus(),
+
+      generatedResponse: {
+        trainingSentenceCount:
+          responseGenerationEngine
+            .getTrainingSentenceCount(),
+
+        vocabularySize:
+          responseGenerationEngine
+            .getVocabularySize(),
+
+        feedback: {
+          total:
+            feedbackStats.total,
+
+          positive:
+            feedbackStats.positive,
+
+          negative:
+            feedbackStats.negative,
+
+          neutral:
+            feedbackStats.neutral,
+
+          eligible:
+            feedbackStats.trainingEligible,
+        },
+      },
     };
   }
 

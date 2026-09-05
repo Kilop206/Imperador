@@ -19,6 +19,9 @@ class ResponseEngine {
     static setSemanticService(service) {
         semanticContextService = service;
     }
+    static getResponseGenerationEngine() {
+        return responseGenerationEngine;
+    }
     static generateCandidates(content, userId) {
         const candidates = [];
         const analysis = textAnalyzer_1.TextAnalyzer.analyze(content);

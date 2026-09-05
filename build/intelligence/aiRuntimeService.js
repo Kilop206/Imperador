@@ -12,6 +12,9 @@ const semanticCandidateService_1 = require("./semanticCandidateService");
 const semanticFeedbackService_1 = require("./semanticFeedbackService");
 const semanticFeedbackTrainingService_1 = require("./semanticFeedbackTrainingService");
 const semanticSafeFineTuningService_1 = require("./semanticSafeFineTuningService");
+const generatedResponseFeedbackService_1 = require("./generatedResponseFeedbackService");
+const generatedResponseLearningService_1 = require("./generatedResponseLearningService");
+const responseEngine_1 = require("../services/responseEngine");
 class AIRuntimeService {
     static initialize() {
         if (this.initialized) {
@@ -29,6 +32,14 @@ class AIRuntimeService {
          * disponíveis ou treinando-os quando necessário.
          */
         modelManager_1.ModelManager.initialize();
+        /*
+         * O gerador de respostas pertence ao ResponseEngine.
+         * Inicializamos a mesma instância que será utilizada
+         * pelo pipeline de respostas em produção.
+         */
+        responseEngine_1.ResponseEngine
+            .getResponseGenerationEngine()
+            .initialize();
         this.initialized = true;
     }
     static ensureInitialized() {
@@ -240,6 +251,26 @@ class AIRuntimeService {
             .preview(options);
     }
     /**
+     * Aplica ao gerador de respostas o feedback
+     * positivo que já foi validado pelo pipeline.
+     *
+     * Usa a mesma instância do ResponseEngine,
+     * portanto o aprendizado passa a afetar
+     * as respostas geradas em produção.
+     */
+    static trainGeneratedResponses(limit = 50) {
+        this.ensureInitialized();
+        const engine = responseEngine_1.ResponseEngine
+            .getResponseGenerationEngine();
+        const learning = generatedResponseLearningService_1.GeneratedResponseLearningService
+            .applyEligible(engine, limit);
+        return {
+            learning,
+            trainingSentenceCount: engine.getTrainingSentenceCount(),
+            vocabularySize: engine.getVocabularySize(),
+        };
+    }
+    /**
      * Persiste explicitamente os modelos semânticos
      * atualmente ativos.
      */
@@ -249,6 +280,10 @@ class AIRuntimeService {
     }
     static getStatus() {
         this.ensureInitialized();
+        const responseGenerationEngine = responseEngine_1.ResponseEngine
+            .getResponseGenerationEngine();
+        const feedbackStats = generatedResponseFeedbackService_1.GeneratedResponseFeedbackService
+            .getStats();
         return {
             initialized: this.initialized,
             intent: {
@@ -265,6 +300,19 @@ class AIRuntimeService {
                     .getPendingCount(),
             },
             semantic: modelManager_1.ModelManager.getStatus(),
+            generatedResponse: {
+                trainingSentenceCount: responseGenerationEngine
+                    .getTrainingSentenceCount(),
+                vocabularySize: responseGenerationEngine
+                    .getVocabularySize(),
+                feedback: {
+                    total: feedbackStats.total,
+                    positive: feedbackStats.positive,
+                    negative: feedbackStats.negative,
+                    neutral: feedbackStats.neutral,
+                    eligible: feedbackStats.trainingEligible,
+                },
+            },
         };
     }
     static reset() {
